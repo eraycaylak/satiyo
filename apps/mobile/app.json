@@ -29,7 +29,7 @@
     },
     "android": {
       "package": "com.satiyo.app",
-      "versionCode": 1,
+      "versionCode": 2,
       "adaptiveIcon": {
         "foregroundImage": "./assets/icon.png",
         "backgroundColor": "#f0434c"
@@ -44,6 +44,12 @@
     },
     "plugins": [
       "expo-router",
+      [
+        "expo-build-properties",
+        {
+          "android": { "kotlinVersion": "1.9.25" }
+        }
+      ],
       [
         "expo-image-picker",
         {
