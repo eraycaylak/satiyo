@@ -1,0 +1,38 @@
+name = "satiyo-api"
+main = "src/index.ts"
+compatibility_date = "2024-12-01"
+compatibility_flags = ["nodejs_compat"]
+
+# --- Özel domain (api.satiyo.app) ---
+routes = [{ pattern = "api.satiyo.app", custom_domain = true }]
+
+# --- D1 (SQLite) ---
+[[d1_databases]]
+binding = "DB"
+database_name = "satiyo"
+database_id = "27a3e81d-a166-416e-b3ae-c94cb9df2308"
+migrations_dir = "migrations"
+
+# --- R2 (görsel depolama) ---
+[[r2_buckets]]
+binding = "MEDIA"
+bucket_name = "satiyo-media"
+
+# --- Durable Objects (gerçek-zamanlı sohbet) ---
+[[durable_objects.bindings]]
+name = "CHAT"
+class_name = "ChatRoom"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["ChatRoom"]
+
+[vars]
+# SMS OTP gelene kadar staging — numarasız dev-giriş açık kalsın diye (production DEĞİL)
+ENVIRONMENT = "staging"
+# JWT_SECRET sırları `wrangler secret put` ile gelir
+# PUBLIC_MEDIA_BASE ilk deploy'dan sonra gerçek worker URL'i ile güncellenir
+PUBLIC_MEDIA_BASE = "https://api.satiyo.app/media"
+
+[observability]
+enabled = true

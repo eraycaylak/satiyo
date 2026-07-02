@@ -1,0 +1,142 @@
+/* Satiyo tasarım sistemi — mobil öncelikli, temiz, premium. */
+:root {
+  /* Marka — Satiyo kırmızısı (logo/ikon ile uyumlu) */
+  --brand: #f0434c;
+  --brand-600: #d62f39;
+  --brand-50: #fff1f2;
+  --accent: #f97316; /* boost / acil vurgu */
+
+  --bg: #ffffff;
+  --bg-soft: #f6f7f9;
+  --surface: #ffffff;
+  --surface-2: #f1f3f5;
+  --border: #e7e9ec;
+  --text: #14181d;
+  --text-muted: #67707a;
+  --danger: #e11d48;
+  --success: #16a34a;
+  --warning: #d97706;
+
+  --radius-sm: 8px;
+  --radius: 14px;
+  --radius-lg: 22px;
+  --shadow-sm: 0 1px 2px rgba(20, 24, 29, 0.06);
+  --shadow: 0 4px 16px rgba(20, 24, 29, 0.08);
+  --shadow-lg: 0 12px 40px rgba(20, 24, 29, 0.14);
+
+  --space-1: 4px; --space-2: 8px; --space-3: 12px;
+  --space-4: 16px; --space-5: 24px; --space-6: 32px; --space-8: 48px;
+
+  --font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --header-h: 60px;
+  --maxw: 1120px;
+}
+
+:root[data-theme="dark"] {
+  --bg: #0d1117;
+  --bg-soft: #11161d;
+  --surface: #161b22;
+  --surface-2: #1c232c;
+  --border: #2a313b;
+  --text: #e7edf3;
+  --text-muted: #9aa6b2;
+  --brand-50: #3a0f12;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
+  --shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.6);
+}
+
+* { box-sizing: border-box; }
+html, body { padding: 0; margin: 0; }
+body {
+  font-family: var(--font);
+  background: var(--bg-soft);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+  font-size: 15px;
+  line-height: 1.5;
+}
+a { color: inherit; text-decoration: none; }
+button { font-family: inherit; cursor: pointer; }
+input, textarea, select { font-family: inherit; font-size: 15px; }
+img { max-width: 100%; display: block; }
+
+.container { max-width: var(--maxw); margin: 0 auto; padding: 0 var(--space-4); }
+
+/* Butonlar */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  border: 1px solid transparent; border-radius: var(--radius);
+  padding: 11px 18px; font-weight: 600; font-size: 15px;
+  transition: transform .08s ease, background .15s ease, opacity .15s ease;
+  background: var(--surface-2); color: var(--text);
+}
+.btn:active { transform: scale(0.98); }
+.btn:disabled { opacity: .55; cursor: not-allowed; }
+.btn-primary { background: var(--brand); color: #fff; }
+.btn-primary:hover { background: var(--brand-600); }
+.btn-ghost { background: transparent; border-color: var(--border); }
+.btn-block { width: 100%; }
+.btn-lg { padding: 14px 22px; font-size: 16px; }
+
+/* Form */
+.input {
+  width: 100%; padding: 12px 14px; border: 1px solid var(--border);
+  border-radius: var(--radius); background: var(--surface); color: var(--text);
+  outline: none; transition: border .15s ease;
+}
+.input:focus { border-color: var(--brand); }
+.label { display: block; font-size: 13px; font-weight: 600; color: var(--text-muted); margin-bottom: 6px; }
+.field { margin-bottom: var(--space-4); }
+
+/* Kart */
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); }
+
+/* Rozet */
+.badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: 999px;
+  background: var(--surface-2); color: var(--text-muted);
+}
+.badge-brand { background: var(--brand-50); color: var(--brand-600); }
+.badge-accent { background: #fff3e8; color: var(--accent); }
+.badge-success { background: #e8f7ee; color: var(--success); }
+
+/* İskelet yükleme */
+.skeleton {
+  background: linear-gradient(90deg, var(--surface-2) 25%, var(--border) 37%, var(--surface-2) 63%);
+  background-size: 400% 100%; animation: shimmer 1.4s ease infinite; border-radius: var(--radius);
+}
+@keyframes shimmer { 0% { background-position: 100% 0; } 100% { background-position: -100% 0; } }
+
+/* Yardımcılar */
+.muted { color: var(--text-muted); }
+.row { display: flex; align-items: center; gap: var(--space-3); }
+.spread { display: flex; align-items: center; justify-content: space-between; }
+.stack { display: flex; flex-direction: column; }
+.grow { flex: 1; }
+.price { font-weight: 800; color: var(--text); }
+.empty { text-align: center; padding: var(--space-8) var(--space-4); color: var(--text-muted); }
+
+/* İlan detay yerleşimi — mobilde tek, geniş ekranda iki sütun */
+.detail-grid { display: grid; gap: var(--space-5); grid-template-columns: 1fr; align-items: start; }
+@media (min-width: 760px) {
+  .detail-grid { grid-template-columns: minmax(0, 1.1fr) minmax(300px, 0.9fr); }
+}
+.attr-table { width: 100%; border-collapse: collapse; }
+.attr-table td { padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 14px; }
+.attr-table td:first-child { color: var(--text-muted); width: 42%; }
+.safety-strip { background: var(--brand-50); color: var(--brand-600); border-radius: var(--radius); padding: 12px 14px; font-size: 13px; display: flex; gap: 8px; align-items: flex-start; }
+.modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 100; display: grid; place-items: center; padding: 16px; }
+.modal { background: var(--surface); border-radius: var(--radius-lg); padding: var(--space-5); width: 100%; max-width: 420px; box-shadow: var(--shadow-lg); }
+
+/* Hukuki metin (gizlilik/koşullar/KVKK) */
+.legal-body { font-size: 15px; color: var(--text); }
+.legal-body h2 { font-size: 19px; margin: 30px 0 8px; }
+.legal-body h3 { font-size: 16px; margin: 20px 0 6px; }
+.legal-body p { margin: 8px 0; }
+.legal-body ul { margin: 8px 0; padding-left: 20px; }
+.legal-body li { margin: 4px 0; }
+.legal-body a { color: var(--brand-600); text-decoration: underline; }
+.footer-links { display: flex; gap: 14px; flex-wrap: wrap; }
+.footer-links a:hover { color: var(--brand-600); }

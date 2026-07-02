@@ -1,0 +1,20 @@
+# Cloudflare Pages — güvenlik başlıkları (tüm rotalar)
+/*
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=(self), payment=()
+  Strict-Transport-Security: max-age=63072000; includeSubDomains; preload
+  Cross-Origin-Opener-Policy: same-origin
+  X-DNS-Prefetch-Control: on
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https://api.satiyo.app wss://api.satiyo.app; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'; manifest-src 'self'; upgrade-insecure-requests
+
+# Next.js hash'li statik varlıklar — kalıcı cache
+/_next/static/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# Marka görselleri
+/logo.png
+  Cache-Control: public, max-age=86400
+/icon.png
+  Cache-Control: public, max-age=86400
