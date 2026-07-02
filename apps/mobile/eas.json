@@ -15,10 +15,18 @@
     },
     "production": {
       "autoIncrement": true,
+      "ios": { "image": "latest" },
       "env": { "EXPO_PUBLIC_API_BASE": "https://api.satiyo.app" }
     }
   },
   "submit": {
-    "production": {}
+    "production": {
+      "ios": {
+        "ascAppId": "6786818121",
+        "ascApiKeyPath": "/Users/x/.appstoreconnect/private_keys/AuthKey_FR3X6D5YCU.p8",
+        "ascApiKeyId": "FR3X6D5YCU",
+        "ascApiKeyIssuerId": "80e03d5d-daf3-4f22-817e-fc668b110aeb"
+      }
+    }
   }
 }
