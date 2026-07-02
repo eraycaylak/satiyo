@@ -26,6 +26,10 @@
         "ascApiKeyPath": "/Users/x/.appstoreconnect/private_keys/AuthKey_FR3X6D5YCU.p8",
         "ascApiKeyId": "FR3X6D5YCU",
         "ascApiKeyIssuerId": "80e03d5d-daf3-4f22-817e-fc668b110aeb"
+      },
+      "android": {
+        "serviceAccountKeyPath": "/Users/x/Downloads/gen-lang-client-0686176337-ea94050f4bc7.json",
+        "track": "internal"
       }
     }
   }
