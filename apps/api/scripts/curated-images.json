@@ -1,0 +1,141 @@
+{
+  "phone": [
+    "https://upload.wikimedia.org/wikipedia/commons/thumb/d/db/SAMSUNG_Galaxy_S23_SERIES.jpg/960px-SAMSUNG_Galaxy_S23_SERIES.jpg",
+    "https://upload.wikimedia.org/wikipedia/commons/thumb/7/79/Galaxy_S23.png/960px-Galaxy_S23.png"
+  ],
+  "iphone": [
+    "https://upload.wikimedia.org/wikipedia/commons/thumb/1/19/Apple_iPhone_15_Pro.jpg/960px-Apple_iPhone_15_Pro.jpg",
+    "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f9/Back_of_iPhone_15.jpg/960px-Back_of_iPhone_15.jpg"
+  ],
+  "laptop": [
+    "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c4/Apple_MacBook_Pro_15%22_%282017%29.jpg/960px-Apple_MacBook_Pro_15%22_%282017%29.jpg",
+    "https://upload.wikimedia.org/wikipedia/commons/thumb/9/91/MacBook_Pro_16_%28M1_Pro%2C_2021%29_-_Wikipedia.jpg/960px-MacBook_Pro_16_%28M1_Pro%2C_2021%29_-_Wikipedia.jpg"
+  ],
+  "gaming_laptop": [
+    "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c9/MSI_Gaming_Laptop_on_wood_floor.jpg/960px-MSI_Gaming_Laptop_on_wood_floor.jpg",
+    "https://upload.wikimedia.org/wikipedia/commons/d/dd/Alienware_m15x_Laptop.jpg"
+  ],
+  "gpu": [
+    "https://upload.wikimedia.org/wikipedia/commons/thumb/4/48/Gigabyte_GTX_970_Windforce.jpg/960px-Gigabyte_GTX_970_Windforce.jpg",
+    "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f3/Sapphire-Radeon-HD-5570-Video-Card.jpg/960px-Sapphire-Radeon-HD-5570-Video-Card.jpg"
+  ],
+  "car": [
+    "https://upload.wikimedia.org/wikipedia/commons/thumb/0/08/Toyota_Corolla_Hybrid_Sedan%2C_GIMS_2019%2C_Le_Grand-Saconnex_%28GIMS1338%29.jpg/960px-Toyota_Corolla_Hybrid_Sedan%2C_GIMS_2019%2C_Le_Grand-Saconnex_%28GIMS1338%29.jpg",
+    "https://upload.wikimedia.org/wikipedia/commons/thumb/b/b3/Volkswagen_Golf_VII_R%2C_TWB_2018%2C_Friedrichshafen_%28OW1A0552%29.jpg/960px-Volkswagen_Golf_VII_R%2C_TWB_2018%2C_Friedrichshafen_%28OW1A0552%29.jpg"
+  ],
+  "refrigerator": [
+    "https://images.unsplash.com/photo-1484154218962-a197022b5858?w=640&h=480&fit=crop",
+    "https://images.unsplash.com/photo-1544928879-7342a2f3ce42?w=640&h=480&fit=crop"
+  ],
+  "washing_machine": [
+    "https://images.unsplash.com/photo-1628843226223-989e20810393?w=640&h=480&fit=crop",
+    "https://images.unsplash.com/photo-1626806787461-102c1bfaaea1?w=640&h=480&fit=crop"
+  ],
+  "dishwasher": [
+    "https://images.unsplash.com/photo-1641823911769-c55f23c25143?w=640&h=480&fit=crop",
+    "https://images.unsplash.com/photo-1556185781-a47769abb7ee?w=640&h=480&fit=crop"
+  ],
+  "oven": [
+    "https://images.unsplash.com/photo-1556911220-bff31c812dba?w=640&h=480&fit=crop",
+    "https://images.unsplash.com/photo-1556908289-3089188da50d?w=640&h=480&fit=crop"
+  ],
+  "sofa": [
+    "https://images.unsplash.com/photo-1757416654883-c73c67b3382b?w=640&h=480&fit=crop",
+    "https://images.unsplash.com/photo-1616137422495-1e9e46e2aa77?w=640&h=480&fit=crop"
+  ],
+  "dining_table": [
+    "https://images.unsplash.com/photo-1560440021-33f9b867899d?w=640&h=480&fit=crop",
+    "https://images.unsplash.com/photo-1519643381401-22c77e60520e?w=640&h=480&fit=crop"
+  ],
+  "wardrobe": [
+    "https://images.unsplash.com/photo-1558769132-cb1aea458c5e?w=640&h=480&fit=crop",
+    "https://images.unsplash.com/photo-1551232864-3f0890e580d9?w=640&h=480&fit=crop"
+  ],
+  "tv_stand": [
+    "https://images.unsplash.com/photo-1567690187548-f07b1d7bf5a9?w=640&h=480&fit=crop",
+    "https://images.unsplash.com/photo-1580897275296-87979517bd4c?w=640&h=480&fit=crop"
+  ],
+  "bed": [
+    "https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?w=640&h=480&fit=crop",
+    "https://images.unsplash.com/photo-1617325247661-675ab4b64ae2?w=640&h=480&fit=crop"
+  ],
+  "armchair": [
+    "https://images.unsplash.com/photo-1580480055273-228ff5388ef8?w=640&h=480&fit=crop",
+    "https://images.unsplash.com/photo-1567538096630-e0c55bd6374c?w=640&h=480&fit=crop"
+  ],
+  "sneakers": [
+    "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=640&h=480&fit=crop",
+    "https://images.unsplash.com/photo-1595950653106-6c9ebd614d3a?w=640&h=480&fit=crop"
+  ],
+  "leather_jacket": [
+    "https://images.unsplash.com/photo-1551028719-00167b16eac5?w=640&h=480&fit=crop",
+    "https://images.unsplash.com/photo-1489286696299-aa7486820bd5?w=640&h=480&fit=crop"
+  ],
+  "dress": [
+    "https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=640&h=480&fit=crop",
+    "https://images.unsplash.com/photo-1591047139829-d91aecb6caea?w=640&h=480&fit=crop"
+  ],
+  "winter_coat": [
+    "https://images.unsplash.com/photo-1539533113208-f6df8cc8b543?w=640&h=480&fit=crop",
+    "https://images.unsplash.com/photo-1608635680046-aebf91c1a9c8?w=640&h=480&fit=crop"
+  ],
+  "tracksuit": [
+    "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=640&h=480&fit=crop",
+    "https://images.unsplash.com/photo-1511107426995-9f2a136ea788?w=640&h=480&fit=crop"
+  ],
+  "watch": [
+    "https://images.unsplash.com/photo-1667284152842-f240b6634655?w=640&h=480&fit=crop",
+    "https://images.unsplash.com/photo-1758071348980-d1eed770f34f?w=640&h=480&fit=crop"
+  ],
+  "sunglasses": [
+    "https://images.unsplash.com/photo-1473496169904-658ba7c44d8a?w=640&h=480&fit=crop",
+    "https://images.unsplash.com/photo-1657472545027-1b62e720f41c?w=640&h=480&fit=crop"
+  ],
+  "bicycle": [
+    "https://images.unsplash.com/photo-1534146789009-76ed5060ec70?w=640&h=480&fit=crop",
+    "https://images.unsplash.com/photo-1606087492572-424ebe0f2f61?w=640&h=480&fit=crop"
+  ],
+  "playstation": [
+    "https://images.unsplash.com/photo-1622297845775-5ff3fef71d13?w=640&h=480&fit=crop",
+    "https://images.unsplash.com/photo-1752262526779-bd65a9b83c25?w=640&h=480&fit=crop"
+  ],
+  "guitar": [
+    "https://images.unsplash.com/photo-1533464748457-fe2ab98513d1?w=640&h=480&fit=crop",
+    "https://images.unsplash.com/photo-1698327259374-dc3f83a54b75?w=640&h=480&fit=crop"
+  ],
+  "xbox": [
+    "https://images.unsplash.com/photo-1621259182978-fbf93132d53d?w=640&h=480&fit=crop",
+    "https://images.unsplash.com/photo-1587861828191-8f748875a69e?w=640&h=480&fit=crop"
+  ],
+  "tent": [
+    "https://images.unsplash.com/photo-1571863533956-01c88e79957e?w=640&h=480&fit=crop",
+    "https://images.unsplash.com/photo-1585939145565-7e90999b354a?w=640&h=480&fit=crop"
+  ],
+  "drone": [
+    "https://images.unsplash.com/photo-1567912972245-e121d1b57ae1?w=640&h=480&fit=crop",
+    "https://images.unsplash.com/photo-1576400538932-fb1cb45dd584?w=640&h=480&fit=crop"
+  ],
+  "tennis_racket": [
+    "https://images.unsplash.com/photo-1622163642998-1ea32b0bbc67?w=640&h=480&fit=crop",
+    "https://images.unsplash.com/photo-1651319087172-d27177766eab?w=640&h=480&fit=crop"
+  ],
+  "stroller": [
+    "https://images.pexels.com/photos/6393240/pexels-photo-6393240.jpeg?w=640&h=480&fit=crop",
+    "https://images.pexels.com/photos/8430216/pexels-photo-8430216.jpeg?w=640&h=480&fit=crop"
+  ],
+  "high_chair": [
+    "https://images.pexels.com/photos/5083236/pexels-photo-5083236.jpeg?w=640&h=480&fit=crop",
+    "https://images.pexels.com/photos/5083228/pexels-photo-5083228.jpeg?w=640&h=480&fit=crop"
+  ],
+  "playpen": [
+    "https://upload.wikimedia.org/wikipedia/commons/6/63/Playpen.jpg"
+  ],
+  "crib": [
+    "https://images.pexels.com/photos/2253894/pexels-photo-2253894.jpeg?w=640&h=480&fit=crop",
+    "https://images.pexels.com/photos/6957487/pexels-photo-6957487.jpeg?w=640&h=480&fit=crop"
+  ],
+  "bouncer": [
+    "https://images.pexels.com/photos/16372619/pexels-photo-16372619.jpeg?w=640&h=480&fit=crop",
+    "https://images.pexels.com/photos/36976744/pexels-photo-36976744.jpeg?w=640&h=480&fit=crop"
+  ]
+}

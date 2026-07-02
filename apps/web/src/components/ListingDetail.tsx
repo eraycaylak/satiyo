@@ -10,6 +10,7 @@ import { conditionLabel, formatPrice, locationText, priceTypeLabel, timeAgo } fr
 import { Gallery } from "./Gallery";
 import { SellerCard } from "./SellerCard";
 import { ListingCard, ListingGrid } from "./ListingCard";
+import { JsonLd } from "./JsonLd";
 
 export function ListingDetail({ id }: { id: string }) {
   const { user } = useAuth();
@@ -42,6 +43,24 @@ export function ListingDetail({ id }: { id: string }) {
 
   const cat = getCategory(listing.categoryId);
   const schema = getAttributeSchema(listing.categoryId);
+
+  // SEO/rich results — Product yapılandırılmış verisi
+  const productLd: Record<string, unknown> = {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    name: listing.title,
+    description: listing.description || listing.title,
+    image: (listing.images ?? []).map((im) => im.url).filter(Boolean),
+    ...(cat ? { category: cat.name } : {}),
+    offers: {
+      "@type": "Offer",
+      price: listing.price / 100,
+      priceCurrency: "TRY",
+      itemCondition: "https://schema.org/UsedCondition",
+      availability: listing.status === "active" ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
+      url: `https://satiyo.app/ilan/${id}`,
+    },
+  };
 
   async function toggleFav() {
     if (!user) return router.push("/giris");
@@ -95,6 +114,7 @@ export function ListingDetail({ id }: { id: string }) {
 
   return (
     <div className="stack" style={{ gap: "var(--space-5)" }}>
+      <JsonLd data={productLd} />
       <div className="row muted" style={{ fontSize: 13, gap: 6 }}>
         <Link href="/">Keşfet</Link> <span>›</span>
         {cat && <><Link href={`/?categoryId=${cat.id}`}>{cat.name}</Link> <span>›</span></>}

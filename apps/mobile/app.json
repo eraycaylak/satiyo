@@ -29,7 +29,7 @@
     },
     "android": {
       "package": "com.satiyo.app",
-      "versionCode": 2,
+      "versionCode": 3,
       "adaptiveIcon": {
         "foregroundImage": "./assets/icon.png",
         "backgroundColor": "#f0434c"
@@ -47,7 +47,9 @@
       [
         "expo-build-properties",
         {
-          "android": { "kotlinVersion": "1.9.25" }
+          "android": {
+            "kotlinVersion": "1.9.25"
+          }
         }
       ],
       [

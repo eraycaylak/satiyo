@@ -1,7 +1,11 @@
 // Çok sayıda örnek ilan üretir (geliştirme). Çıktı: SQL → wrangler d1 execute ile uygulanır.
 // Görseller loremflickr (kategori anahtarlı gerçek fotoğraflar) — kredi harcamaz.
 import { randomUUID } from "node:crypto";
-import { writeFileSync } from "node:fs";
+import { writeFileSync, readFileSync } from "node:fs";
+
+// Küratörlü, curl-doğrulanmış kategori-eşleşmeli görseller (Wikimedia/Unsplash/Pexels).
+// Uygun tip yoksa loremflickr anahtarına düşülür.
+const CURATED = JSON.parse(readFileSync(new URL("./curated-images.json", import.meta.url), "utf8"));
 
 function foldTr(s) {
   return s.toLocaleLowerCase("tr-TR")
@@ -27,6 +31,26 @@ function imgKeyword(baseTitle, fallback) {
   const t = baseTitle.toLocaleLowerCase("tr-TR");
   for (const [needle, kw] of KW_MAP) if (t.includes(needle)) return kw;
   return fallback;
+}
+
+// Başlık → küratörlü görsel tipi (curated-images.json anahtarları)
+const TYPE_MAP = [
+  ["iphone", "iphone"], ["samsung galaxy", "phone"], ["galaxy", "phone"], ["xiaomi", "phone"], ["huawei", "phone"], ["oppo", "phone"], ["samsung a", "phone"],
+  ["macbook", "laptop"], ["thinkpad", "laptop"], ["lenovo", "laptop"], ["dell xps", "laptop"], ["hp pavilion", "laptop"],
+  ["rog", "gaming_laptop"], ["monster", "gaming_laptop"], ["gaming", "gaming_laptop"],
+  ["rtx", "gpu"], ["ddr4", "gpu"], ["ram", "gpu"],
+  ["golf", "car"], ["clio", "car"], ["egea", "car"], ["bmw", "car"], ["corolla", "car"], ["civic", "car"], ["focus", "car"], ["astra", "car"],
+  ["buzdolab", "refrigerator"], ["çamaşır", "washing_machine"], ["bulaşık", "dishwasher"], ["fırın", "oven"],
+  ["koltuk", "sofa"], ["kanepe", "sofa"], ["çekyat", "sofa"], ["masa", "dining_table"], ["gardırop", "wardrobe"],
+  ["tv ünite", "tv_stand"], ["berjer", "armchair"], ["yatak", "bed"],
+  ["ayakkab", "sneakers"], ["ceket", "leather_jacket"], ["elbise", "dress"], ["mont", "winter_coat"], ["eşofman", "tracksuit"], ["saat", "watch"], ["gözlük", "sunglasses"],
+  ["bisiklet", "bicycle"], ["playstation", "playstation"], ["gitar", "guitar"], ["xbox", "xbox"], ["çadır", "tent"], ["drone", "drone"], ["raket", "tennis_racket"],
+  ["bebek arabası", "stroller"], ["puset", "stroller"], ["mama sandalye", "high_chair"], ["oyun parkı", "playpen"], ["beşik", "crib"], ["ana kucağı", "bouncer"],
+];
+function typeForTitle(baseTitle) {
+  const t = baseTitle.toLocaleLowerCase("tr-TR");
+  for (const [needle, ty] of TYPE_MAP) if (t.includes(needle) && CURATED[ty]?.length) return ty;
+  return null;
 }
 
 const CITIES = [
@@ -75,11 +99,15 @@ while (n < target) {
     for (const [k, vals] of Object.entries(cat.attrs)) attrPairs[k] = pick(vals, ci + k.length);
 
     listings.push(`('${id}','${seller}',${q(title)},${q(desc)},'${cat.id}',${price},'${ptype}','used',${q(city)},${q(district)},'active',${Math.floor(Math.random()*200)},${created},${created})`);
-    // 1-3 görsel (loremflickr kategori anahtarlı)
-    const imgCount = 1 + (idx % 3);
+    // Görseller: önce küratörlü kategori-eşleşmeli (curl-doğrulanmış), yoksa loremflickr.
+    const type = typeForTitle(baseTitle);
+    const curatedUrls = type ? CURATED[type] : null;
     const kw = imgKeyword(baseTitle, cat.kw);
+    const imgCount = curatedUrls ? curatedUrls.length : 1 + (idx % 3);
     for (let p = 0; p < imgCount; p++) {
-      const url = `https://loremflickr.com/640/480/${kw}?lock=${(n * 7 + p) % 900 + 1}`;
+      const url = curatedUrls
+        ? curatedUrls[(ci + p) % curatedUrls.length]
+        : `https://loremflickr.com/640/480/${kw}?lock=${(n * 7 + p) % 900 + 1}`;
       images.push(`('${randomUUID().replace(/-/g,"").slice(0,16)}','${id}',${q(url)},${p},NULL)`);
     }
     const body = foldTr(`${cat.id} ${Object.values(attrPairs).join(" ")} ${desc}`);

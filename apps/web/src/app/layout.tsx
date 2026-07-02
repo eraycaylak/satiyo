@@ -3,8 +3,31 @@ import { Suspense } from "react";
 import "./globals.css";
 import { Providers } from "@/lib/providers";
 import { Header } from "@/components/Header";
+import { Analytics } from "@/components/Analytics";
+import { JsonLd } from "@/components/JsonLd";
 
 const SITE_URL = "https://satiyo.app";
+
+const ORGANIZATION_LD = {
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  name: "Satıyo",
+  url: SITE_URL,
+  logo: `${SITE_URL}/logo.png`,
+  description: "Reklamsız, yerel odaklı ikinci-el ilan ve alışveriş platformu.",
+};
+const WEBSITE_LD = {
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  name: "Satıyo",
+  url: SITE_URL,
+  inLanguage: "tr-TR",
+  potentialAction: {
+    "@type": "SearchAction",
+    target: { "@type": "EntryPoint", urlTemplate: `${SITE_URL}/?q={search_term_string}` },
+    "query-input": "required name=search_term_string",
+  },
+};
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -50,6 +73,9 @@ export const metadata: Metadata = {
     apple: "/icon.png",
   },
   formatDetection: { telephone: false },
+  verification: process.env.NEXT_PUBLIC_GSC_VERIFICATION
+    ? { google: process.env.NEXT_PUBLIC_GSC_VERIFICATION }
+    : undefined,
 };
 
 export const viewport: Viewport = {
@@ -72,6 +98,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
       <body>
+        <JsonLd data={ORGANIZATION_LD} />
+        <JsonLd data={WEBSITE_LD} />
+        <Suspense fallback={null}>
+          <Analytics />
+        </Suspense>
         <Providers>
           <Suspense fallback={<div style={{ height: "var(--header-h)" }} />}>
             <Header />
