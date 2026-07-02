@@ -95,6 +95,21 @@ export class SatiyoClient {
   activateStore(storeName: string) {
     return this.request<User>("/me/store/activate", { method: "POST", body: JSON.stringify({ storeName }) });
   }
+  /** Hesabı ve tüm ilişkili veriyi kalıcı olarak sil (App Store 5.1.1(v)). */
+  deleteAccount() {
+    return this.request<{ ok: true }>("/me", { method: "DELETE" });
+  }
+
+  // --- Engelleme (App Store 1.2 — UGC güvenliği) ---
+  blockUser(userId: string) {
+    return this.request<{ ok: true }>("/me/blocks", { method: "POST", body: JSON.stringify({ userId }) });
+  }
+  unblockUser(userId: string) {
+    return this.request<{ ok: true }>(`/me/blocks/${userId}`, { method: "DELETE" });
+  }
+  blockedUsers() {
+    return this.request<{ id: string; name: string; createdAt: number }[]>("/me/blocks");
+  }
 
   // --- Listings ---
   search(filters: SearchFilters) {

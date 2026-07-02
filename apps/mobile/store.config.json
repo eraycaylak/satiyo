@@ -1,0 +1,39 @@
+{
+  "configVersion": 0,
+  "apple": {
+    "info": {
+      "tr": {
+        "title": "Satıyo: İkinci El İlan",
+        "subtitle": "Komşundan al, komşuna sat",
+        "description": "Satıyo, komşularının arasında güvenle alışveriş yapabileceğin, reklamsız ve yerel odaklı ikinci el ilan platformudur. Kullanmadığın eşyaları saniyeler içinde satışa çıkar, aradığın ürünü en yakınından uygun fiyata bul.\n\nKomşundan al, komşuna sat.\n\nNEDEN SATIYO?\n• Reklamsız deneyim — akışını bozan reklam yok, sadece ilanlar\n• Yerel odaklı — sana en yakın satıcı ve alıcılar öncelikli\n• Ücretsiz ilan — komisyon yok, kolayca ilan ver\n• Hızlı giriş — telefon numaranla saniyeler içinde başla\n\nHIZLI İLAN VER\n• Fotoğraf çek, fiyat gir, yayınla — dakikalar içinde binlerce alıcıya ulaş\n• Kullanmadığın her şeyi paraya çevir\n\nKATEGORİLİ ARAMA\nİhtiyacın olanı hızlıca bul:\n• Telefon ve elektronik\n• Bilgisayar ve tablet\n• Otomobil ve araç\n• Beyaz eşya\n• Mobilya ve ev\n• Moda ve giyim\n• Hobi ve koleksiyon\n• Bebek ve çocuk\n\nMESAJLAŞ VE TEKLİF VER\n• Satıcıyla uygulama içinden anında yaz\n• Fiyat teklifi gönder, pazarlığı kolayca yönet\n• Anlaş, buluş, al\n\nHARİTA GÖRÜNÜMÜ\n• İlanları haritada gör, sana en yakın fırsatları keşfet\n\nFAVORİLER\n• Beğendiğin ilanları kaydet, sonra geri dön\n\nÖNE ÇIKAR (BOOST)\n• İlanını öne çıkar, daha çok kişiye ulaş, daha hızlı sat\n\nMAĞAZA ÜYELİĞİ\n• Düzenli satış yapıyorsan kendi mağazanı aç, güven kazan\n\nGÜVENLİ ALIŞVERİŞ\n• Güvenlik uyarıları ve ipuçlarıyla dolandırıcılığa karşı korun\n\nHemen indir, ilk ilanını ver, komşundan almaya başla!",
+        "keywords": ["ikinci el", "ilan", "satılık", "pazaryeri", "sahibinden", "ikinci el eşya", "al sat", "dolap", "alışveriş", "eşya", "emlak"],
+        "releaseNotes": "Satıyo yayında! Reklamsız, yerel odaklı ikinci el pazaryerine hoş geldin. Telefonla hızlı giriş yap, ücretsiz ilan ver, kategorilerde ara, mesajlaş, teklif ver, favorine ekle ve haritadan en yakın fırsatları keşfet.",
+        "promoText": "Reklamsız ikinci el pazaryeri! Telefonunu, mobilyanı, arabanı saniyeler içinde ilana çıkar; komşundan güvenle al. Ücretsiz ilan ver, teklif yap, favorine ekle.",
+        "marketingUrl": "https://satiyo.app",
+        "supportUrl": "https://satiyo.app",
+        "privacyPolicyUrl": "https://satiyo.app/gizlilik"
+      }
+    },
+    "categories": ["SHOPPING", "LIFESTYLE"],
+    "advisory": {
+      "alcoholTobaccoOrDrugUseOrReferences": "NONE",
+      "contests": "NONE",
+      "gamblingSimulated": "NONE",
+      "horrorOrFearThemes": "NONE",
+      "matureOrSuggestiveThemes": "NONE",
+      "medicalOrTreatmentInformation": "NONE",
+      "profanityOrCrudeHumor": "NONE",
+      "sexualContentGraphicAndNudity": "NONE",
+      "sexualContentOrNudity": "NONE",
+      "violenceCartoonOrFantasy": "NONE",
+      "violenceRealistic": "NONE",
+      "violenceRealisticProlongedGraphicOrSadistic": "NONE",
+      "gambling": false,
+      "unrestrictedWebAccess": false,
+      "seventeenPlus": false,
+      "kidsAgeBand": null,
+      "ageRatingOverride": "NONE",
+      "koreaAgeRatingOverride": "NONE"
+    }
+  }
+}

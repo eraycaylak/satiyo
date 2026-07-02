@@ -1,7 +1,8 @@
-import { Dimensions, FlatList, Text, View } from "react-native";
-import { useLocalSearchParams } from "expo-router";
+import { Alert, Dimensions, FlatList, Pressable, Text, View } from "react-native";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/client";
+import { useAuth } from "@/lib/auth";
 import { space, useTheme } from "@/lib/theme";
 import { timeAgo } from "@/lib/format";
 import { ListingCard } from "@/components/ListingCard";
@@ -10,9 +11,26 @@ import { Empty, Loading } from "@/components/ui";
 export default function SellerScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const t = useTheme();
+  const router = useRouter();
+  const { user } = useAuth();
   const { data: seller } = useQuery({ queryKey: ["seller", id], queryFn: () => api.getSeller(id!) });
   const { data: listings, isLoading } = useQuery({ queryKey: ["seller-listings", id], queryFn: () => api.sellerListings(id!) });
   const cardW = (Dimensions.get("window").width - space.lg * 2 - space.md) / 2;
+
+  function blockSeller() {
+    if (!user) return router.push("/giris");
+    Alert.alert(
+      "Kullanıcıyı engelle",
+      `${seller?.storeName ?? seller?.name ?? "Bu kullanıcı"} artık seninle mesajlaşamaz ve ilanları önerilmez.`,
+      [
+        { text: "Vazgeç", style: "cancel" },
+        { text: "Engelle", style: "destructive", onPress: async () => {
+          try { await api.blockUser(id!); Alert.alert("Engellendi", "Kullanıcı engellendi."); router.back(); }
+          catch (e) { Alert.alert("Hata", (e as Error).message); }
+        } },
+      ],
+    );
+  }
 
   return (
     <View style={{ flex: 1, backgroundColor: t.bg }}>
@@ -27,6 +45,11 @@ export default function SellerScreen() {
             {seller ? ` · Üyelik ${timeAgo(seller.createdAt)}` : ""}
           </Text>
         </View>
+        {seller && user?.id !== seller.id && (
+          <Pressable onPress={blockSeller} hitSlop={10}>
+            <Text style={{ color: t.danger, fontSize: 13, fontWeight: "600" }}>⊘ Engelle</Text>
+          </Pressable>
+        )}
       </View>
       {isLoading ? <Loading /> :
         !listings || listings.items.length === 0 ? <Empty text="Aktif ilan yok." /> :

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Alert, FlatList, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, Text, TextInput, View } from "react-native";
-import { useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import type { Conversation, Message } from "@satiyo/shared";
 import { api, tokenStore } from "@/lib/client";
 import { useAuth } from "@/lib/auth";
@@ -13,6 +13,7 @@ const QUICK = ["Hâlâ satılık mı?", "Son fiyat?", "Ne zaman bakabilirim?", "
 export default function ChatScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const t = useTheme();
+  const router = useRouter();
   const { user, loading } = useAuth();
   const [messages, setMessages] = useState<Message[]>([]);
   const [text, setText] = useState("");
@@ -34,6 +35,20 @@ export default function ChatScreen() {
   }, [id, user]);
 
   const reviewedId = conv ? (user?.id === conv.buyerId ? conv.sellerId : conv.buyerId) : null;
+  function blockOther() {
+    if (!reviewedId) return;
+    Alert.alert(
+      "Kullanıcıyı engelle",
+      "Bu kullanıcı artık seninle mesajlaşamaz. Emin misin?",
+      [
+        { text: "Vazgeç", style: "cancel" },
+        { text: "Engelle", style: "destructive", onPress: async () => {
+          try { await api.blockUser(reviewedId!); Alert.alert("Engellendi", "Kullanıcı engellendi."); router.back(); }
+          catch (e) { Alert.alert("Hata", (e as Error).message); }
+        } },
+      ],
+    );
+  }
   async function submitReview() {
     if (!conv || !reviewedId) return;
     try {
@@ -77,7 +92,10 @@ export default function ChatScreen() {
   return (
     <KeyboardAvoidingView style={{ flex: 1, backgroundColor: t.bg }} behavior={Platform.OS === "ios" ? "padding" : undefined} keyboardVerticalOffset={90}>
       <View style={{ paddingHorizontal: space.lg, paddingVertical: 6, flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-        {conv ? <Pressable onPress={() => setReviewOpen(true)}><Text style={{ color: t.brand, fontWeight: "600" }}>⭐ Değerlendir</Text></Pressable> : <View />}
+        <View style={{ flexDirection: "row", gap: space.md, alignItems: "center" }}>
+          {conv ? <Pressable onPress={() => setReviewOpen(true)}><Text style={{ color: t.brand, fontWeight: "600" }}>⭐ Değerlendir</Text></Pressable> : null}
+          {reviewedId ? <Pressable onPress={blockOther}><Text style={{ color: t.danger, fontWeight: "600", fontSize: 13 }}>⊘ Engelle</Text></Pressable> : null}
+        </View>
         <Text style={{ color: connected ? t.brand : t.muted, fontSize: 12 }}>{connected ? "● Çevrimiçi" : "○ Bağlanıyor"}</Text>
       </View>
       <FlatList

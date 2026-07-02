@@ -9,6 +9,10 @@ import { radius, space, useTheme } from "@/lib/theme";
 import { conditionLabel, formatNumber, formatPrice, locationText, priceTypeLabel, timeAgo } from "@/lib/format";
 import { Badge, Button, Loading } from "@/components/ui";
 
+// Dijital "Öne Çıkar" satın alımı App Store'da IAP gerektirir (Guideline 3.1.1).
+// IAP kurulana kadar mobilde gizli. Web'de aktif kalır.
+const SHOW_PAID_FEATURES = false;
+
 export default function ListingDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const t = useTheme();
@@ -82,7 +86,7 @@ export default function ListingDetailScreen() {
           </View>
         )}
 
-        {isOwner && listing.status === "active" && (
+        {SHOW_PAID_FEATURES && isOwner && listing.status === "active" && (
           <Button title="✦ Öne Çıkar" onPress={() => setBoostOpen(true)} />
         )}
 

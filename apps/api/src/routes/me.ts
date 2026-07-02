@@ -38,6 +38,64 @@ meRoutes.patch("/", async (c) => {
   return c.json(rowToUser(row as Record<string, unknown>));
 });
 
+// --- Hesap silme (App Store Guideline 5.1.1(v) — zorunlu) ---
+meRoutes.delete("/", async (c) => {
+  const user = c.get("user");
+  const uid = user.id;
+  // D1'de yabancı anahtar zorlaması kapalı olduğundan ilişkili tüm veriyi açıkça sil.
+  await c.env.DB.batch([
+    c.env.DB.prepare(`DELETE FROM messages WHERE sender_id = ?`).bind(uid),
+    c.env.DB.prepare(`DELETE FROM messages WHERE conversation_id IN (SELECT id FROM conversations WHERE buyer_id = ?1 OR seller_id = ?1)`).bind(uid),
+    c.env.DB.prepare(`DELETE FROM conversations WHERE buyer_id = ?1 OR seller_id = ?1`).bind(uid),
+    c.env.DB.prepare(`DELETE FROM boosts WHERE listing_id IN (SELECT id FROM listings WHERE seller_id = ?)`).bind(uid),
+    c.env.DB.prepare(`DELETE FROM listing_images WHERE owner_id = ?1 OR listing_id IN (SELECT id FROM listings WHERE seller_id = ?1)`).bind(uid),
+    c.env.DB.prepare(`DELETE FROM listing_attributes WHERE listing_id IN (SELECT id FROM listings WHERE seller_id = ?)`).bind(uid),
+    c.env.DB.prepare(`DELETE FROM listings WHERE seller_id = ?`).bind(uid),
+    c.env.DB.prepare(`DELETE FROM favorites WHERE user_id = ?`).bind(uid),
+    c.env.DB.prepare(`DELETE FROM reviews WHERE reviewer_id = ?1 OR reviewed_id = ?1`).bind(uid),
+    c.env.DB.prepare(`DELETE FROM reports WHERE reporter_id = ?`).bind(uid),
+    c.env.DB.prepare(`DELETE FROM saved_searches WHERE user_id = ?`).bind(uid),
+    c.env.DB.prepare(`DELETE FROM notifications WHERE user_id = ?`).bind(uid),
+    c.env.DB.prepare(`DELETE FROM payments WHERE user_id = ?`).bind(uid),
+    c.env.DB.prepare(`DELETE FROM blocks WHERE blocker_id = ?1 OR blocked_id = ?1`).bind(uid),
+    c.env.DB.prepare(`DELETE FROM sessions WHERE user_id = ?`).bind(uid),
+    c.env.DB.prepare(`DELETE FROM users WHERE id = ?`).bind(uid),
+  ]);
+  return c.json({ ok: true as const });
+});
+
+// --- Kullanıcı engelleme (App Store Guideline 1.2 — UGC güvenliği) ---
+meRoutes.post("/blocks", async (c) => {
+  const { userId } = (await c.req.json().catch(() => ({}))) as { userId?: string };
+  if (!userId || typeof userId !== "string") badRequest("Kullanıcı gerekli");
+  const user = c.get("user");
+  if (userId === user.id) badRequest("Kendinizi engelleyemezsiniz");
+  await c.env.DB.prepare(
+    `INSERT INTO blocks (blocker_id, blocked_id, created_at) VALUES (?,?,?)
+     ON CONFLICT(blocker_id, blocked_id) DO NOTHING`,
+  ).bind(user.id, userId, now()).run();
+  return c.json({ ok: true as const });
+});
+
+meRoutes.delete("/blocks/:userId", async (c) => {
+  const user = c.get("user");
+  await c.env.DB.prepare(`DELETE FROM blocks WHERE blocker_id = ? AND blocked_id = ?`)
+    .bind(user.id, c.req.param("userId")).run();
+  return c.json({ ok: true as const });
+});
+
+meRoutes.get("/blocks", async (c) => {
+  const user = c.get("user");
+  const rows = await c.env.DB.prepare(
+    `SELECT u.id, u.name, u.store_name, b.created_at
+     FROM blocks b JOIN users u ON u.id = b.blocked_id
+     WHERE b.blocker_id = ? ORDER BY b.created_at DESC`,
+  ).bind(user.id).all();
+  return c.json((rows.results as Record<string, unknown>[]).map((r) => ({
+    id: r.id as string, name: (r.store_name as string) ?? (r.name as string), createdAt: r.created_at as number,
+  })));
+});
+
 meRoutes.get("/listings", async (c) => {
   const user = c.get("user");
   const rows = await c.env.DB.prepare(

@@ -49,13 +49,17 @@ export default function LoginScreen() {
           <TextInput value={phone} onChangeText={setPhone} keyboardType="number-pad" placeholder="5XX XXX XX XX" placeholderTextColor={t.muted} style={input} />
           {error && <Text style={{ color: t.danger }}>{error}</Text>}
           <Button title="Kod gönder" onPress={requestCode} loading={busy} />
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginVertical: 4 }}>
-            <View style={{ flex: 1, height: 1, backgroundColor: t.border }} />
-            <Text style={{ color: t.muted, fontSize: 12 }}>veya</Text>
-            <View style={{ flex: 1, height: 1, backgroundColor: t.border }} />
-          </View>
-          <Button title="🛠️ Numarasız dev giriş" variant="ghost" onPress={devLogin} loading={busy} />
-          <Text style={{ color: t.muted, fontSize: 11, textAlign: "center" }}>Geçici — SMS gelince kaldırılacak.</Text>
+          {__DEV__ && (
+            <>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginVertical: 4 }}>
+                <View style={{ flex: 1, height: 1, backgroundColor: t.border }} />
+                <Text style={{ color: t.muted, fontSize: 12 }}>veya</Text>
+                <View style={{ flex: 1, height: 1, backgroundColor: t.border }} />
+              </View>
+              <Button title="🛠️ Numarasız dev giriş" variant="ghost" onPress={devLogin} loading={busy} />
+              <Text style={{ color: t.muted, fontSize: 11, textAlign: "center" }}>Sadece geliştirmede görünür.</Text>
+            </>
+          )}
         </>
       ) : (
         <>

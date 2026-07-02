@@ -4,6 +4,7 @@ import type { Env, Variables } from "../env.js";
 import { badRequest, conflict, forbidden, notFound } from "../lib/http.js";
 import { newId, now } from "../lib/id.js";
 import { rowToMessage } from "../lib/db.js";
+import { areBlocked } from "../lib/blocks.js";
 import { inspectMessage } from "../lib/safety.js";
 import { optionalAuth, requireAuth } from "../middleware/auth.js";
 import { verifyJwt } from "../lib/crypto.js";
@@ -78,6 +79,7 @@ conversationRoutes.post("/", requireAuth, async (c) => {
   const listing = await c.env.DB.prepare(`SELECT * FROM listings WHERE id = ?`).bind(listingId).first();
   if (!listing || listing.status === "removed") notFound("İlan bulunamadı");
   if (listing!.seller_id === user.id) badRequest("Kendi ilanınıza mesaj atamazsınız");
+  if (await areBlocked(c.env.DB, user.id, listing!.seller_id as string)) forbidden("Bu kullanıcıyla mesajlaşamazsınız");
 
   let conv = await c.env.DB.prepare(`SELECT * FROM conversations WHERE listing_id = ? AND buyer_id = ?`)
     .bind(listingId, user.id).first();
@@ -130,6 +132,8 @@ conversationRoutes.post("/:id/messages", requireAuth, async (c) => {
   const conv = await loadConversation(c.env, id);
   if (!conv) notFound("Konuşma bulunamadı");
   assertMember(conv as Record<string, unknown>, user.id);
+  const otherId = (conv!.buyer_id === user.id ? conv!.seller_id : conv!.buyer_id) as string;
+  if (await areBlocked(c.env.DB, user.id, otherId)) forbidden("Bu kullanıcıyla mesajlaşamazsınız");
 
   const parsed = sendMessageSchema.safeParse(await c.req.json().catch(() => ({})));
   if (!parsed.success) badRequest("Mesaj geçersiz", parsed.error.flatten());

@@ -28,8 +28,9 @@ tag = "v1"
 new_sqlite_classes = ["ChatRoom"]
 
 [vars]
-# SMS OTP gelene kadar staging — numarasız dev-giriş açık kalsın diye (production DEĞİL)
-ENVIRONMENT = "staging"
+# Production: numarasız dev-giriş KAPALI. Denetçi girişi sabit demo no+kod ile (auth.ts REVIEWER_*).
+# Gerçek kullanıcı SMS'i için NetGSM secret'ları gerekir (bkz. sms.ts).
+ENVIRONMENT = "production"
 # JWT_SECRET sırları `wrangler secret put` ile gelir
 # PUBLIC_MEDIA_BASE ilk deploy'dan sonra gerçek worker URL'i ile güncellenir
 PUBLIC_MEDIA_BASE = "https://api.satiyo.app/media"

@@ -1,7 +1,11 @@
 import { useEffect, useState } from "react";
-import { Alert, Modal, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { Alert, Linking, Modal, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { useRouter } from "expo-router";
 import { STORE_MEMBERSHIP } from "@satiyo/shared";
+
+// Dijital mağaza üyeliği App Store'da IAP gerektirir (Guideline 3.1.1). IAP kurulana kadar gizli.
+const SHOW_PAID_FEATURES = false;
+const WEB = "https://satiyo.app";
 import { api } from "@/lib/client";
 import { useAuth } from "@/lib/auth";
 import { useI18n } from "@/lib/i18n";
@@ -41,6 +45,22 @@ export default function ProfileScreen() {
     try { await api.activateStore(storeName.trim()); await refresh(); setStoreOpen(false); Alert.alert("Tebrikler 🏪", "Mağaza üyeliğin aktif!"); }
     catch (e) { Alert.alert("Hata", (e as Error).message); }
   }
+  function deleteAccount() {
+    Alert.alert(
+      "Hesabı sil",
+      "Tüm ilanların, mesajların, favorilerin ve verilerin kalıcı olarak silinecek. Bu işlem geri alınamaz. Emin misin?",
+      [
+        { text: "Vazgeç", style: "cancel" },
+        {
+          text: "Hesabımı Sil", style: "destructive",
+          onPress: async () => {
+            try { await api.deleteAccount(); await logout(); }
+            catch (e) { Alert.alert("Hata", (e as Error).message); }
+          },
+        },
+      ],
+    );
+  }
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: t.bg }} contentContainerStyle={{ padding: space.lg, gap: space.md }}>
@@ -64,12 +84,13 @@ export default function ProfileScreen() {
 
       <Button title={busy ? "Kaydediliyor…" : "Kaydet"} onPress={save} loading={busy} />
       {saved && <Badge label="✓ Kaydedildi" tone="success" />}
-      {user.isStore ? (
+      {user.isStore && (
         <View style={{ flexDirection: "row", gap: 8, alignItems: "center", padding: space.md, borderWidth: 1, borderColor: t.border, borderRadius: radius.md }}>
           <Badge label="Mağaza" tone="brand" />
           <Text style={{ fontWeight: "700", color: t.text }}>{user.storeName}</Text>
         </View>
-      ) : (
+      )}
+      {SHOW_PAID_FEATURES && !user.isStore && (
         <Button title={`🏪 Mağaza Ol — ${formatNumber(STORE_MEMBERSHIP.price / 100)}₺/ay`} onPress={() => setStoreOpen(true)} />
       )}
       <Button title="🔔 Bildirimler" variant="ghost" onPress={() => router.push("/bildirimler")} />
@@ -82,6 +103,19 @@ export default function ProfileScreen() {
       </View>
 
       <Button title={tr("profile.logout")} variant="ghost" onPress={async () => { await logout(); }} />
+
+      <View style={{ height: 1, backgroundColor: t.border, marginVertical: 4 }} />
+      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, justifyContent: "center" }}>
+        <Pressable onPress={() => Linking.openURL(`${WEB}/kosullar`)}><Text style={{ color: t.muted, fontSize: 12 }}>Kullanım Koşulları</Text></Pressable>
+        <Text style={{ color: t.muted, fontSize: 12 }}>·</Text>
+        <Pressable onPress={() => Linking.openURL(`${WEB}/gizlilik`)}><Text style={{ color: t.muted, fontSize: 12 }}>Gizlilik Politikası</Text></Pressable>
+        <Text style={{ color: t.muted, fontSize: 12 }}>·</Text>
+        <Pressable onPress={() => Linking.openURL(`${WEB}/kvkk`)}><Text style={{ color: t.muted, fontSize: 12 }}>KVKK</Text></Pressable>
+      </View>
+
+      <Pressable onPress={deleteAccount} style={{ paddingVertical: 10, alignItems: "center" }}>
+        <Text style={{ color: t.danger, fontSize: 13, fontWeight: "600" }}>Hesabımı Sil</Text>
+      </Pressable>
 
       <Modal visible={storeOpen} transparent animationType="slide" onRequestClose={() => setStoreOpen(false)}>
         <Pressable onPress={() => setStoreOpen(false)} style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "flex-end" }}>

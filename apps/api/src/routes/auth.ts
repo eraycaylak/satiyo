@@ -10,7 +10,33 @@ import { sendSms } from "../lib/sms.js";
 const OTP_TTL_MS = 3 * 60 * 1000; // 3 dk
 const SESSION_TTL_S = 60 * 60 * 24 * 30; // 30 gün
 
+// App Store / Play denetçisi için sabit demo hesabı: SMS gelmeden normal telefon
+// akışından giriş yapabilsin diye. Bu numara + kod App Review notlarında belgelenir.
+// Gerçek SMS (NetGSM) devreye girince bu bypass kaldırılabilir.
+const REVIEWER_PHONE = "+905550000000";
+const REVIEWER_CODE = "424242";
+
 export const authRoutes = new Hono<{ Bindings: Env; Variables: Variables }>();
+
+/** Demo/denetçi kullanıcısını oluştur/getir → JWT oturum dön. */
+async function issueSession(c: { env: Env }, phone: string, name: string, city?: string) {
+  let userRow = await c.env.DB.prepare(`SELECT * FROM users WHERE phone = ?`).bind(phone).first();
+  if (!userRow) {
+    const id = newId("usr");
+    await c.env.DB.prepare(
+      `INSERT INTO users (id, phone, name, city, created_at, phone_verified) VALUES (?,?,?,?,?,1)`,
+    ).bind(id, phone, name, city ?? null, now()).run();
+    userRow = await c.env.DB.prepare(`SELECT * FROM users WHERE id = ?`).bind(id).first();
+  }
+  const user = rowToUser(userRow as Record<string, unknown>);
+  const iat = Math.floor(now() / 1000);
+  const exp = iat + SESSION_TTL_S;
+  const jti = newId("ses");
+  await c.env.DB.prepare(`INSERT INTO sessions (id, user_id, created_at, expires_at) VALUES (?,?,?,?)`)
+    .bind(jti, user.id, now(), exp * 1000).run();
+  const token = await signJwt({ sub: user.id, phone: user.phone, jti, iat, exp }, c.env.JWT_SECRET);
+  return { token, user, expiresAt: exp * 1000 };
+}
 
 /**
  * GEÇİCİ — numarasız hızlı giriş (sadece geliştirme). SMS OTP gelince KALDIRILACAK.
@@ -43,6 +69,9 @@ authRoutes.post("/otp/request", async (c) => {
   if (!parsed.success) badRequest("Geçersiz telefon", parsed.error.flatten());
   const { phone } = parsed.data!;
 
+  // Denetçi demo numarası: SMS gönderme, sabit kod kullanılacak.
+  if (phone === REVIEWER_PHONE) return c.json({ ok: true as const, delivered: false });
+
   // 6 haneli kod. Geliştirmede sabit 000000 yerine rastgele üretip dev'de döneriz.
   const code = (Math.floor(crypto.getRandomValues(new Uint32Array(1))[0]! % 1_000_000))
     .toString()
@@ -58,12 +87,10 @@ authRoutes.post("/otp/request", async (c) => {
     .bind(phone, codeHash, ts + OTP_TTL_MS, ts)
     .run();
 
-  // Gerçek SMS (NetGSM) — secret varsa gönder. Yoksa dev kodu fallback'i devreye girer.
+  // Gerçek SMS (NetGSM) — secret varsa gönder. Secret yoksa (henüz kurulmadı) 500 atma;
+  // akış kırılmasın diye ok dön. Kodu prod'da asla döndürme.
   const isProd = c.env.ENVIRONMENT === "production";
   const sent = await sendSms(c.env, phone, `Satiyo dogrulama kodunuz: ${code}. Kimseyle paylasmayin.`);
-  if (isProd && !sent) fail(500, "sms_failed", "Doğrulama kodu gönderilemedi, tekrar deneyin");
-
-  // Prod'da kodu asla döndürme; staging/dev'de kolay test için dön.
   const devCode = isProd ? undefined : code;
   return c.json({ ok: true as const, devCode, delivered: sent });
 });
@@ -73,6 +100,11 @@ authRoutes.post("/otp/verify", async (c) => {
   const parsed = verifyOtpSchema.safeParse(await c.req.json().catch(() => ({})));
   if (!parsed.success) badRequest("Geçersiz kod", parsed.error.flatten());
   const { phone, code } = parsed.data!;
+
+  // Denetçi demo hesabı: sabit kodla SMS'siz giriş.
+  if (phone === REVIEWER_PHONE && code === REVIEWER_CODE) {
+    return c.json(await issueSession(c, REVIEWER_PHONE, "Demo Kullanıcı", "İstanbul"));
+  }
 
   const row = await c.env.DB.prepare(`SELECT * FROM otp_codes WHERE phone = ?`).bind(phone).first();
   if (!row) fail(400, "otp_not_found", "Önce kod isteyin");
