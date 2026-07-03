@@ -236,7 +236,7 @@ export class SatiyoClient {
 
   // --- Admin ---
   adminStats() {
-    return this.request<{ users: number; activeListings: number; openReports: number; revenue: number }>("/admin/stats");
+    return this.request<AdminStats>("/admin/stats");
   }
   adminReports(status = "open") {
     return this.request<AdminReport[]>("/admin/reports", { query: { status } });
@@ -267,6 +267,22 @@ export class SatiyoClient {
   categories() {
     return this.request<unknown[]>("/categories");
   }
+}
+
+export interface AdminStats {
+  users: {
+    total: number; verified: number; stores: number; banned: number;
+    admins: number; active7d: number; new24h: number; new7d: number;
+  };
+  listings: {
+    total: number; active: number; sold: number; reserved: number;
+    removed: number; boosted: number; new24h: number; new7d: number;
+  };
+  engagement: {
+    conversations: number; messages: number; favorites: number;
+    reviews: number; reportsOpen: number; reportsTotal: number;
+  };
+  revenue: { totalKurus: number; payments: number };
 }
 
 export interface AdminReport {

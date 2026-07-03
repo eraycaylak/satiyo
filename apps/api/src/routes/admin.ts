@@ -9,16 +9,50 @@ import { requireAdmin } from "../middleware/admin.js";
 export const adminRoutes = new Hono<{ Bindings: Env; Variables: Variables }>();
 adminRoutes.use("*", requireAuth, requireAdmin);
 
-// --- Özet metrikler ---
+// --- Özet metrikler (zengin panel) ---
 adminRoutes.get("/stats", async (c) => {
-  const q = (sql: string) => c.env.DB.prepare(sql).first().then((r) => (r?.n as number) ?? 0);
-  const [users, listings, openReports, payments] = await Promise.all([
-    q("SELECT COUNT(*) AS n FROM users"),
-    q("SELECT COUNT(*) AS n FROM listings WHERE status = 'active'"),
-    q("SELECT COUNT(*) AS n FROM reports WHERE status = 'open'"),
-    q("SELECT COALESCE(SUM(amount),0) AS n FROM payments WHERE status = 'paid'"),
+  const t = now();
+  const day = 86_400_000;
+  const d1 = t - day; // son 24 saat
+  const d7 = t - 7 * day; // son 7 gün
+  const first = (sql: string, ...b: unknown[]) => c.env.DB.prepare(sql).bind(...b).first();
+  const num = (v: unknown) => Number(v ?? 0);
+
+  const [u, l, act, conv, msg, fav, rev, rep, pay] = await Promise.all([
+    first(
+      `SELECT COUNT(*) total, SUM(phone_verified=1) verified, SUM(is_store=1) stores,
+              SUM(banned=1) banned, SUM(is_admin=1) admins,
+              SUM(created_at>=?1) n24, SUM(created_at>=?2) n7 FROM users`, d1, d7),
+    first(
+      `SELECT COUNT(*) total, SUM(status='active') active, SUM(status='sold') sold,
+              SUM(status='reserved') reserved, SUM(status='removed') removed,
+              SUM(boosted_until>?1) boosted, SUM(created_at>=?2) n24, SUM(created_at>=?3) n7 FROM listings`, t, d1, d7),
+    first(`SELECT COUNT(DISTINCT user_id) n FROM sessions WHERE created_at>=?1`, d7),
+    first(`SELECT COUNT(*) n FROM conversations`),
+    first(`SELECT COUNT(*) n FROM messages`),
+    first(`SELECT COUNT(*) n FROM favorites`),
+    first(`SELECT COUNT(*) n FROM reviews`),
+    first(`SELECT SUM(status='open') open, COUNT(*) total FROM reports`),
+    first(`SELECT COALESCE(SUM(amount),0) sum, COUNT(*) cnt FROM payments WHERE status='paid'`),
   ]);
-  return c.json({ users, activeListings: listings, openReports, revenue: payments });
+
+  return c.json({
+    users: {
+      total: num(u?.total), verified: num(u?.verified), stores: num(u?.stores),
+      banned: num(u?.banned), admins: num(u?.admins), active7d: num(act?.n),
+      new24h: num(u?.n24), new7d: num(u?.n7),
+    },
+    listings: {
+      total: num(l?.total), active: num(l?.active), sold: num(l?.sold),
+      reserved: num(l?.reserved), removed: num(l?.removed), boosted: num(l?.boosted),
+      new24h: num(l?.n24), new7d: num(l?.n7),
+    },
+    engagement: {
+      conversations: num(conv?.n), messages: num(msg?.n), favorites: num(fav?.n),
+      reviews: num(rev?.n), reportsOpen: num(rep?.open), reportsTotal: num(rep?.total),
+    },
+    revenue: { totalKurus: num(pay?.sum), payments: num(pay?.cnt) },
+  });
 });
 
 // --- Şikayet kuyruğu ---

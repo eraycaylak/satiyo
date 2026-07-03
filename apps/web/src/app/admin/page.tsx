@@ -51,18 +51,39 @@ export default function AdminPage() {
       </div>
 
       {tab === "stats" && stats && (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px,1fr))", gap: 12 }}>
-          {[
-            { l: "Kullanıcı", v: stats.users },
-            { l: "Aktif İlan", v: stats.activeListings },
-            { l: "Açık Şikayet", v: stats.openReports },
-            { l: "Gelir (₺)", v: new Intl.NumberFormat("tr-TR").format(stats.revenue / 100) },
-          ].map((s) => (
-            <div key={s.l} className="card" style={{ padding: "var(--space-5)" }}>
-              <div className="muted" style={{ fontSize: 13 }}>{s.l}</div>
-              <div className="price" style={{ fontSize: 28 }}>{s.v}</div>
-            </div>
-          ))}
+        <div className="stack" style={{ gap: "var(--space-5)" }}>
+          <StatSection title="👤 Kullanıcılar" items={[
+            ["Toplam", stats.users.total],
+            ["Doğrulanmış", stats.users.verified],
+            ["Mağaza", stats.users.stores],
+            ["Aktif (7g)", stats.users.active7d],
+            ["Yeni (24s)", stats.users.new24h],
+            ["Yeni (7g)", stats.users.new7d],
+            ["Banlı", stats.users.banned],
+            ["Admin", stats.users.admins],
+          ]} />
+          <StatSection title="🏷️ İlanlar" items={[
+            ["Toplam", stats.listings.total],
+            ["Aktif", stats.listings.active],
+            ["Satıldı", stats.listings.sold],
+            ["Rezerve", stats.listings.reserved],
+            ["Kaldırıldı", stats.listings.removed],
+            ["Öne çıkan", stats.listings.boosted],
+            ["Yeni (24s)", stats.listings.new24h],
+            ["Yeni (7g)", stats.listings.new7d],
+          ]} />
+          <StatSection title="💬 Etkileşim" items={[
+            ["Konuşma", stats.engagement.conversations],
+            ["Mesaj", stats.engagement.messages],
+            ["Favori", stats.engagement.favorites],
+            ["Değerlendirme", stats.engagement.reviews],
+            ["Açık şikayet", stats.engagement.reportsOpen],
+            ["Toplam şikayet", stats.engagement.reportsTotal],
+          ]} />
+          <StatSection title="💰 Gelir" items={[
+            ["Toplam ₺", new Intl.NumberFormat("tr-TR").format(Math.round(stats.revenue.totalKurus / 100))],
+            ["Ödeme sayısı", stats.revenue.payments],
+          ]} />
         </div>
       )}
 
@@ -102,6 +123,22 @@ export default function AdminPage() {
           {synonyms && synonyms.length === 0 && <p className="muted">Henüz özel synonym yok (koddaki varsayılanlar geçerli).</p>}
         </div>
       )}
+    </div>
+  );
+}
+
+function StatSection({ title, items }: { title: string; items: [string, number | string][] }) {
+  return (
+    <div className="stack" style={{ gap: 10 }}>
+      <h2 style={{ fontSize: 15, margin: 0, color: "var(--text-muted)", fontWeight: 700 }}>{title}</h2>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(110px,1fr))", gap: 10 }}>
+        {items.map(([label, value]) => (
+          <div key={label} className="card" style={{ padding: "var(--space-4)" }}>
+            <div className="muted" style={{ fontSize: 12 }}>{label}</div>
+            <div className="price" style={{ fontSize: 24 }}>{value}</div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
