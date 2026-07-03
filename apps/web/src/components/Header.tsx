@@ -46,11 +46,11 @@ export function Header() {
 
   return (
     <header style={{ position: "sticky", top: 0, zIndex: 50, background: "var(--surface)", borderBottom: "1px solid var(--border)" }}>
-      <div className="container row" style={{ height: "var(--header-h)", gap: "var(--space-4)" }}>
-        <Link href="/" style={{ fontWeight: 900, fontSize: 22, color: "var(--brand)", letterSpacing: "-0.02em" }}>
+      <div className="container hdr-inner">
+        <Link href="/" className="hdr-logo">
           Satıyo
         </Link>
-        <form onSubmit={submit} className="grow" style={{ maxWidth: 520 }}>
+        <form onSubmit={submit} className="hdr-search">
           <input
             className="input"
             placeholder={t("nav.search")}
@@ -58,7 +58,7 @@ export function Header() {
             onChange={(e) => setQ(e.target.value)}
           />
         </form>
-        <div className="row" style={{ gap: "var(--space-2)" }}>
+        <div className="hdr-actions">
           <LangToggle />
           <ThemeToggle />
           <Link href="/favoriler" className="btn btn-ghost" style={{ padding: "8px 12px" }} aria-label="Favoriler">♥</Link>

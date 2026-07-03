@@ -47,7 +47,7 @@
 }
 
 * { box-sizing: border-box; }
-html, body { padding: 0; margin: 0; }
+html, body { padding: 0; margin: 0; overflow-x: clip; max-width: 100%; }
 body {
   font-family: var(--font);
   background: var(--bg-soft);
@@ -140,3 +140,23 @@ img { max-width: 100%; display: block; }
 .legal-body a { color: var(--brand-600); text-decoration: underline; }
 .footer-links { display: flex; gap: 14px; flex-wrap: wrap; }
 .footer-links a:hover { color: var(--brand-600); }
+
+/* Başlık (header) — mobilde taşmayı önler: arama kendi satırına iner, buton şeridi header içinde kayar */
+.hdr-inner {
+  display: flex; align-items: center; gap: var(--space-3);
+  min-height: var(--header-h); flex-wrap: wrap; padding: 8px 0;
+}
+.hdr-logo { font-weight: 900; font-size: 22px; color: var(--brand); letter-spacing: -0.02em; flex-shrink: 0; }
+.hdr-search { flex: 1 1 100%; order: 3; margin: 0; }
+.hdr-actions {
+  display: flex; align-items: center; gap: var(--space-2);
+  margin-left: auto; min-width: 0; overflow-x: auto;
+  -webkit-overflow-scrolling: touch; scrollbar-width: none;
+}
+.hdr-actions::-webkit-scrollbar { display: none; }
+.hdr-actions > * { flex-shrink: 0; }
+@media (min-width: 760px) {
+  .hdr-inner { flex-wrap: nowrap; padding: 0; }
+  .hdr-search { flex: 1 1 auto; order: 0; max-width: 520px; }
+  .hdr-actions { overflow-x: visible; }
+}
