@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Alert, FlatList, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { useQueryClient } from "@tanstack/react-query";
 import type { Conversation, Message } from "@satiyo/shared";
 import { api, tokenStore } from "@/lib/client";
 import { useAuth } from "@/lib/auth";
@@ -14,6 +15,7 @@ export default function ChatScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const t = useTheme();
   const router = useRouter();
+  const qc = useQueryClient();
   const { user, loading } = useAuth();
   const [messages, setMessages] = useState<Message[]>([]);
   const [text, setText] = useState("");
@@ -43,8 +45,13 @@ export default function ChatScreen() {
       [
         { text: "Vazgeç", style: "cancel" },
         { text: "Engelle", style: "destructive", onPress: async () => {
-          try { await api.blockUser(reviewedId!); Alert.alert("Engellendi", "Kullanıcı engellendi."); router.back(); }
-          catch (e) { Alert.alert("Hata", (e as Error).message); }
+          try {
+            await api.blockUser(reviewedId!);
+            await qc.invalidateQueries({ queryKey: ["listings"] });
+            await qc.invalidateQueries({ queryKey: ["recommendations"] });
+            Alert.alert("Engellendi", "Kullanıcı engellendi ve ilanları akışından kaldırıldı.");
+            router.back();
+          } catch (e) { Alert.alert("Hata", (e as Error).message); }
         } },
       ],
     );

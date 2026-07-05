@@ -13,6 +13,7 @@ import type { Env, Variables } from "../env.js";
 import { badRequest, forbidden, notFound } from "../lib/http.js";
 import { newId, now } from "../lib/id.js";
 import { hydrateListings, rowToListing } from "../lib/db.js";
+import { areBlocked } from "../lib/blocks.js";
 import { inspectListing } from "../lib/safety.js";
 import { listingMatchesQuery, type SavedQuery } from "../lib/match.js";
 import { optionalAuth, requireAuth } from "../middleware/auth.js";
@@ -107,6 +108,13 @@ listingRoutes.get("/", optionalAuth, async (c) => {
     binds.push(f.sellerType === "store" ? 1 : 0);
   }
 
+  // Engellenen/engelleyen kullanıcıların ilanları feed'den anında gizlenir (App Store Guideline 1.2)
+  const viewer = c.get("user");
+  if (viewer) {
+    where.push("l.seller_id NOT IN (SELECT blocked_id FROM blocks WHERE blocker_id = ? UNION SELECT blocker_id FROM blocks WHERE blocked_id = ?)");
+    binds.push(viewer.id, viewer.id);
+  }
+
   const whereSql = where.join(" AND ");
 
   // Sıralama — boost her zaman öne (relevance/newest'te)
@@ -166,6 +174,10 @@ listingRoutes.get("/:id", optionalAuth, async (c) => {
 
   // Görüntülenme sayacı (sahibi hariç)
   const user = c.get("user");
+  // Engellenen kullanıcının ilanı görüntülenemez (App Store Guideline 1.2)
+  if (user && user.id !== row!.seller_id && (await areBlocked(c.env.DB, user.id, row!.seller_id as string))) {
+    notFound("İlan bulunamadı");
+  }
   if (!user || user.id !== row!.seller_id) {
     await c.env.DB.prepare(`UPDATE listings SET view_count = view_count + 1 WHERE id = ?`).bind(id).run();
   }

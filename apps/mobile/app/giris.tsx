@@ -1,10 +1,12 @@
 import { useState } from "react";
-import { Text, TextInput, View } from "react-native";
+import { Linking, Text, TextInput, View } from "react-native";
 import { useRouter } from "expo-router";
 import { api } from "@/lib/client";
 import { useAuth } from "@/lib/auth";
 import { radius, space, useTheme } from "@/lib/theme";
 import { Badge, Button } from "@/components/ui";
+
+const WEB = "https://satiyo.app";
 
 export default function LoginScreen() {
   const t = useTheme();
@@ -49,6 +51,13 @@ export default function LoginScreen() {
           <TextInput value={phone} onChangeText={setPhone} keyboardType="number-pad" placeholder="5XX XXX XX XX" placeholderTextColor={t.muted} style={input} />
           {error && <Text style={{ color: t.danger }}>{error}</Text>}
           <Button title="Kod gönder" onPress={requestCode} loading={busy} />
+          <Text style={{ color: t.muted, fontSize: 12, textAlign: "center", lineHeight: 18 }}>
+            Devam ederek{" "}
+            <Text style={{ color: t.brand, fontWeight: "600" }} onPress={() => Linking.openURL(`${WEB}/kosullar`)}>Kullanım Koşulları</Text>
+            {"'nı ve "}
+            <Text style={{ color: t.brand, fontWeight: "600" }} onPress={() => Linking.openURL(`${WEB}/gizlilik`)}>Gizlilik Politikası</Text>
+            {"'nı kabul etmiş olursun. Uygunsuz içerik ve tacize sıfır tolerans."}
+          </Text>
           {__DEV__ && (
             <>
               <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginVertical: 4 }}>

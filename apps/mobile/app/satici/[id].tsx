@@ -1,6 +1,6 @@
 import { Alert, Dimensions, FlatList, Pressable, Text, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/client";
 import { useAuth } from "@/lib/auth";
 import { space, useTheme } from "@/lib/theme";
@@ -13,6 +13,7 @@ export default function SellerScreen() {
   const t = useTheme();
   const router = useRouter();
   const { user } = useAuth();
+  const qc = useQueryClient();
   const { data: seller } = useQuery({ queryKey: ["seller", id], queryFn: () => api.getSeller(id!) });
   const { data: listings, isLoading } = useQuery({ queryKey: ["seller-listings", id], queryFn: () => api.sellerListings(id!) });
   const cardW = (Dimensions.get("window").width - space.lg * 2 - space.md) / 2;
@@ -25,8 +26,14 @@ export default function SellerScreen() {
       [
         { text: "Vazgeç", style: "cancel" },
         { text: "Engelle", style: "destructive", onPress: async () => {
-          try { await api.blockUser(id!); Alert.alert("Engellendi", "Kullanıcı engellendi."); router.back(); }
-          catch (e) { Alert.alert("Hata", (e as Error).message); }
+          try {
+            await api.blockUser(id!);
+            // İçeriği feed'den ANINDA kaldır (App Store 1.2)
+            await qc.invalidateQueries({ queryKey: ["listings"] });
+            await qc.invalidateQueries({ queryKey: ["recommendations"] });
+            Alert.alert("Engellendi", "Kullanıcı engellendi ve ilanları akışından kaldırıldı.");
+            router.back();
+          } catch (e) { Alert.alert("Hata", (e as Error).message); }
         } },
       ],
     );

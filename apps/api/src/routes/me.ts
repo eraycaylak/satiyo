@@ -70,10 +70,18 @@ meRoutes.post("/blocks", async (c) => {
   if (!userId || typeof userId !== "string") badRequest("Kullanıcı gerekli");
   const user = c.get("user");
   if (userId === user.id) badRequest("Kendinizi engelleyemezsiniz");
-  await c.env.DB.prepare(
-    `INSERT INTO blocks (blocker_id, blocked_id, created_at) VALUES (?,?,?)
-     ON CONFLICT(blocker_id, blocked_id) DO NOTHING`,
-  ).bind(user.id, userId, now()).run();
+  const ts = now();
+  // Engelle + aynı anda geliştiriciye/moderasyona rapor düş (App Store 1.2 — "notify the developer").
+  await c.env.DB.batch([
+    c.env.DB.prepare(
+      `INSERT INTO blocks (blocker_id, blocked_id, created_at) VALUES (?,?,?)
+       ON CONFLICT(blocker_id, blocked_id) DO NOTHING`,
+    ).bind(user.id, userId, ts),
+    c.env.DB.prepare(
+      `INSERT INTO reports (id, reporter_id, target_type, target_id, reason, status, created_at)
+       VALUES (?,?, 'user', ?, ?, 'open', ?)`,
+    ).bind(newId("rpt"), user.id, userId, "Kullanıcı engellendi — uygunsuz davranış/içerik bildirimi", ts),
+  ]);
   return c.json({ ok: true as const });
 });
 
@@ -122,13 +130,15 @@ meRoutes.get("/recommendations", async (c) => {
     rows = await c.env.DB.prepare(
       `SELECT * FROM listings WHERE status = 'active' AND seller_id != ? AND category_id IN (${ph})
        AND id NOT IN (SELECT listing_id FROM favorites WHERE user_id = ?)
+       AND seller_id NOT IN (SELECT blocked_id FROM blocks WHERE blocker_id = ? UNION SELECT blocker_id FROM blocks WHERE blocked_id = ?)
        ORDER BY (CASE WHEN boosted_until > ? THEN 0 ELSE 1 END), created_at DESC LIMIT 12`,
-    ).bind(user.id, ...catIds, user.id, ts).all();
+    ).bind(user.id, ...catIds, user.id, user.id, user.id, ts).all();
   } else {
     rows = await c.env.DB.prepare(
       `SELECT * FROM listings WHERE status = 'active' AND seller_id != ?
+       AND seller_id NOT IN (SELECT blocked_id FROM blocks WHERE blocker_id = ? UNION SELECT blocker_id FROM blocks WHERE blocked_id = ?)
        ORDER BY (CASE WHEN boosted_until > ? THEN 0 ELSE 1 END), created_at DESC LIMIT 12`,
-    ).bind(user.id, ts).all();
+    ).bind(user.id, user.id, user.id, ts).all();
   }
   let listings = (rows.results as Record<string, unknown>[]).map(rowToListing);
   listings = await hydrateListings(c.env.DB, listings, { withSeller: true, favoriteUserId: user.id });
