@@ -2,7 +2,7 @@
   "expo": {
     "name": "Satıyo",
     "slug": "satiyo",
-    "version": "1.0.0",
+    "version": "1.0.2",
     "scheme": "satiyo",
     "icon": "./assets/icon.png",
     "orientation": "portrait",
@@ -20,7 +20,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.satiyo.app",
-      "buildNumber": "4",
+      "buildNumber": "12",
       "infoPlist": {
         "NSPhotoLibraryUsageDescription": "İlan fotoğrafı seçmek için galerinize erişim gerekir.",
         "NSCameraUsageDescription": "İlan fotoğrafı çekmek için kameranıza erişim gerekir.",

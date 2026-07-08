@@ -1,0 +1,33 @@
+default_platform(:ios)
+
+# v1.0.2 sürümünün gerçek App Store durumunu ve yayın tipini yazdırır.
+lane :checkstate do
+  require "spaceship"
+  Spaceship::ConnectAPI.token = Spaceship::ConnectAPI::Token.from_json_file(ENV["ASC_KEY"])
+  app = Spaceship::ConnectAPI::App.find("com.satiyo.app")
+  live = app.get_live_app_store_version(platform: "IOS")
+  edit = app.get_edit_app_store_version(platform: "IOS")
+  UI.important("CANLI (mağazada): #{live&.version_string} · state=#{live&.app_store_state}")
+  UI.important("HAZIRLANAN     : #{edit&.version_string} · state=#{edit&.app_store_state} · release_type=#{edit&.release_type} · earliest=#{edit&.earliest_release_date}")
+end
+
+# v1.0.2 (build 12) sürümünün TÜM App Store dillerine "Yenilikler" (whatsNew)
+# metnini yazar. Diller tahmin edilmez; edit sürümün gerçek localization'larından okunur.
+lane :setnotes do
+  require "spaceship"
+  Spaceship::ConnectAPI.token = Spaceship::ConnectAPI::Token.from_json_file(ENV["ASC_KEY"])
+  app = Spaceship::ConnectAPI::App.find("com.satiyo.app")
+  UI.user_error!("App bulunamadı") unless app
+  version = app.get_edit_app_store_version(platform: "IOS")
+  UI.user_error!("Düzenlenebilir sürüm yok") unless version
+  UI.message("Edit sürüm: #{version.version_string} · durum=#{version.app_store_state}")
+
+  notes_tr = ENV["NOTES_TR"]
+  notes_en = ENV["NOTES_EN"]
+  version.get_app_store_version_localizations.each do |loc|
+    notes = loc.locale.to_s.downcase.start_with?("tr") ? notes_tr : notes_en
+    loc.update(attributes: { "whatsNew" => notes })
+    UI.success("#{loc.locale}: Yenilikler yazıldı")
+  end
+  UI.success("Tüm diller güncellendi.")
+end

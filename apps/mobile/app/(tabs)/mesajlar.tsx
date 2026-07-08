@@ -1,4 +1,5 @@
 import { FlatList, Image, Pressable, Text, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/client";
@@ -16,7 +17,7 @@ export default function ConversationsScreen() {
   if (loading) return <Loading />;
   if (!user) return (
     <View style={{ flex: 1, backgroundColor: t.bg, padding: space.lg, justifyContent: "center", gap: space.md }}>
-      <Empty icon="✉️" text="Mesajların için giriş yap." />
+      <Empty icon="chatbubbles-outline" text="Mesajların için giriş yap." />
       <Button title="Giriş yap" onPress={() => router.push("/giris")} />
     </View>
   );
@@ -24,7 +25,7 @@ export default function ConversationsScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: t.bg }}>
       {isLoading ? <Loading /> :
-        !data || data.length === 0 ? <Empty icon="✉️" text="Henüz mesajın yok." /> :
+        !data || data.length === 0 ? <Empty icon="chatbubbles-outline" text="Henüz mesajın yok." /> :
         <FlatList
           data={data} keyExtractor={(c) => c.id}
           contentContainerStyle={{ padding: space.lg, gap: space.sm }}
@@ -33,7 +34,7 @@ export default function ConversationsScreen() {
               style={{ flexDirection: "row", gap: space.md, backgroundColor: t.surface, borderWidth: 1, borderColor: t.border, borderRadius: radius.lg, padding: space.md }}>
               <View style={{ width: 52, height: 52, borderRadius: radius.md, overflow: "hidden", backgroundColor: t.surface2 }}>
                 {cv.listing?.coverUrl ? <Image source={{ uri: cv.listing.coverUrl }} style={{ width: "100%", height: "100%" }} /> :
-                  <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}><Text style={{ fontSize: 20, opacity: 0.4 }}>🖼️</Text></View>}
+                  <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}><Ionicons name="image-outline" size={22} color={t.muted} /></View>}
               </View>
               <View style={{ flex: 1, gap: 2 }}>
                 <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
@@ -41,7 +42,7 @@ export default function ConversationsScreen() {
                   <Text style={{ color: t.muted, fontSize: 11 }}>{timeAgo(cv.lastMessageAt)}</Text>
                 </View>
                 <Text numberOfLines={1} style={{ color: t.muted, fontSize: 13 }}>
-                  {cv.lastMessage?.type === "offer" ? `💰 Teklif: ${formatPrice(cv.lastMessage.offerAmount ?? 0)}` : cv.lastMessage?.body ?? "—"}
+                  {cv.lastMessage?.type === "offer" ? <><Ionicons name="cash-outline" size={13} color={t.muted} /> Teklif: {formatPrice(cv.lastMessage.offerAmount ?? 0)}</> : cv.lastMessage?.body ?? "—"}
                 </Text>
                 <Text numberOfLines={1} style={{ color: t.muted, fontSize: 11 }}>{cv.listing?.title}</Text>
               </View>

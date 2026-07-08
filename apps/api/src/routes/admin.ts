@@ -18,7 +18,7 @@ adminRoutes.get("/stats", async (c) => {
   const first = (sql: string, ...b: unknown[]) => c.env.DB.prepare(sql).bind(...b).first();
   const num = (v: unknown) => Number(v ?? 0);
 
-  const [u, l, act, conv, msg, fav, rev, rep, pay] = await Promise.all([
+  const [u, l, act, act24, conv, msg, fav, rev, rep, pay] = await Promise.all([
     first(
       `SELECT COUNT(*) total, SUM(phone_verified=1) verified, SUM(is_store=1) stores,
               SUM(banned=1) banned, SUM(is_admin=1) admins,
@@ -28,6 +28,7 @@ adminRoutes.get("/stats", async (c) => {
               SUM(status='reserved') reserved, SUM(status='removed') removed,
               SUM(boosted_until>?1) boosted, SUM(created_at>=?2) n24, SUM(created_at>=?3) n7 FROM listings`, t, d1, d7),
     first(`SELECT COUNT(DISTINCT user_id) n FROM sessions WHERE created_at>=?1`, d7),
+    first(`SELECT COUNT(DISTINCT user_id) n FROM sessions WHERE created_at>=?1`, d1),
     first(`SELECT COUNT(*) n FROM conversations`),
     first(`SELECT COUNT(*) n FROM messages`),
     first(`SELECT COUNT(*) n FROM favorites`),
@@ -36,11 +37,24 @@ adminRoutes.get("/stats", async (c) => {
     first(`SELECT COALESCE(SUM(amount),0) sum, COUNT(*) cnt FROM payments WHERE status='paid'`),
   ]);
 
+  const evTotal = await first(`SELECT SUM(created_at>=?1) c24, COUNT(*) c7 FROM events WHERE created_at>=?2`, d1, d7);
+  const evTop = await c.env.DB.prepare(
+    `SELECT name, SUM(created_at>=?1) c24, COUNT(*) c7 FROM events
+     WHERE created_at>=?2 GROUP BY name ORDER BY c7 DESC LIMIT 12`,
+  ).bind(d1, d7).all();
+
   return c.json({
     users: {
       total: num(u?.total), verified: num(u?.verified), stores: num(u?.stores),
-      banned: num(u?.banned), admins: num(u?.admins), active7d: num(act?.n),
+      banned: num(u?.banned), admins: num(u?.admins),
+      active24h: num(act24?.n), active7d: num(act?.n),
       new24h: num(u?.n24), new7d: num(u?.n7),
+    },
+    activity: {
+      events24h: num(evTotal?.c24), events7d: num(evTotal?.c7),
+      topEvents: (evTop.results as Record<string, unknown>[]).map((r) => ({
+        name: String(r.name), c24: num(r.c24), c7: num(r.c7),
+      })),
     },
     listings: {
       total: num(l?.total), active: num(l?.active), sold: num(l?.sold),
@@ -53,6 +67,26 @@ adminRoutes.get("/stats", async (c) => {
     },
     revenue: { totalKurus: num(pay?.sum), payments: num(pay?.cnt) },
   });
+});
+
+// --- Kullanıcı listesi (son görülme + ilan sayısı) ---
+adminRoutes.get("/users", async (c) => {
+  const q = (c.req.query("q") ?? "").trim();
+  const rows = await c.env.DB.prepare(
+    `SELECT u.id, u.phone, u.name, u.city, u.created_at, u.phone_verified,
+            u.is_store, u.is_admin, u.banned,
+            (SELECT COUNT(*) FROM listings l WHERE l.seller_id = u.id) AS listing_count,
+            (SELECT MAX(s.created_at) FROM sessions s WHERE s.user_id = u.id) AS last_seen
+     FROM users u
+     ${q ? "WHERE u.phone LIKE ?1 OR u.name LIKE ?1" : ""}
+     ORDER BY u.created_at DESC LIMIT 200`,
+  ).bind(...(q ? [`%${q}%`] : [])).all();
+  return c.json((rows.results as Record<string, unknown>[]).map((r) => ({
+    id: r.id, phone: r.phone, name: r.name, city: r.city, createdAt: r.created_at,
+    phoneVerified: Boolean(r.phone_verified), isStore: Boolean(r.is_store),
+    isAdmin: Boolean(r.is_admin), banned: Boolean(r.banned),
+    listingCount: Number(r.listing_count ?? 0), lastSeen: r.last_seen ?? null,
+  })));
 });
 
 // --- Şikayet kuyruğu ---

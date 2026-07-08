@@ -12,6 +12,11 @@ export interface Env {
   NETGSM_USERNAME?: string;
   NETGSM_PASSWORD?: string;
   NETGSM_HEADER?: string; // onaylı gönderici başlığı (msgheader)
+  // SMS OTP sağlayıcısı (Twilio Verify) — global, şahıs şirketi/başlık onayı gerektirmez.
+  // Varsa NetGSM'in önüne geçer; kodu Twilio üretir/doğrular (kendi otp_codes tablomuz kullanılmaz).
+  TWILIO_ACCOUNT_SID?: string;
+  TWILIO_AUTH_TOKEN?: string;
+  TWILIO_VERIFY_SERVICE_SID?: string;
 }
 
 export interface AuthUser {

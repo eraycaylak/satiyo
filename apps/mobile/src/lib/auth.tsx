@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import type { User } from "@satiyo/shared";
+import { ApiClientError } from "@satiyo/shared";
 import { api, tokenStore } from "./client";
 
 interface AuthState {
@@ -16,11 +17,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
-  async function refresh() {
+  async function refresh(retry = true): Promise<void> {
     const token = await tokenStore.load();
     if (!token) { setUser(null); setLoading(false); return; }
-    try { setUser(await api.me()); } catch { setUser(null); }
-    finally { setLoading(false); }
+    try {
+      setUser(await api.me());
+      setLoading(false);
+    } catch (e) {
+      // SADECE gerçek 401'de çıkış yap. Ağ/5xx gibi geçici hatalarda oturumu düşürme.
+      if (e instanceof ApiClientError && e.status === 401) {
+        setUser(null);
+        await tokenStore.clear();
+        setLoading(false);
+      } else if (retry) {
+        // Geçici hata: kısa bekle, 1 kez daha dene (soğuk başlangıç dayanıklılığı).
+        await new Promise((r) => setTimeout(r, 1500));
+        await refresh(false);
+      } else {
+        // Hâlâ ulaşılamıyor: mevcut oturumu KORU, token'ı silme.
+        setLoading(false);
+      }
+    }
   }
 
   useEffect(() => { void refresh(); }, []);

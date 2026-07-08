@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Alert, FlatList, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useQueryClient } from "@tanstack/react-query";
 import type { Conversation, Message } from "@satiyo/shared";
@@ -32,7 +33,9 @@ export default function ChatScreen() {
 
   useEffect(() => {
     if (!user) return;
-    api.messages(id!).then(setMessages).catch(() => {});
+    // Mesajları çek — sunucu bu çağrıda okundu işaretler; mesajlar listesindeki
+    // okunmamış rozetini anında tazelemek için ["conversations"]'ı invalidate et.
+    api.messages(id!).then((m) => { setMessages(m); qc.invalidateQueries({ queryKey: ["conversations"] }); }).catch(() => {});
     api.conversations().then((l) => setConv(l.find((c) => c.id === id) ?? null)).catch(() => {});
   }, [id, user]);
 
@@ -100,13 +103,17 @@ export default function ChatScreen() {
     <KeyboardAvoidingView style={{ flex: 1, backgroundColor: t.bg }} behavior={Platform.OS === "ios" ? "padding" : undefined} keyboardVerticalOffset={90}>
       <View style={{ paddingHorizontal: space.lg, paddingVertical: 6, flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
         <View style={{ flexDirection: "row", gap: space.md, alignItems: "center" }}>
-          {conv ? <Pressable onPress={() => setReviewOpen(true)}><Text style={{ color: t.brand, fontWeight: "600" }}>⭐ Değerlendir</Text></Pressable> : null}
-          {reviewedId ? <Pressable onPress={blockOther}><Text style={{ color: t.danger, fontWeight: "600", fontSize: 13 }}>⊘ Engelle</Text></Pressable> : null}
+          {conv ? <Pressable onPress={() => setReviewOpen(true)} style={{ flexDirection: "row", alignItems: "center", gap: 4 }}><Ionicons name="star" size={15} color={t.brand} /><Text style={{ color: t.brand, fontWeight: "600" }}>Değerlendir</Text></Pressable> : null}
+          {reviewedId ? <Pressable onPress={blockOther} style={{ flexDirection: "row", alignItems: "center", gap: 4 }}><Ionicons name="remove-circle-outline" size={15} color={t.danger} /><Text style={{ color: t.danger, fontWeight: "600", fontSize: 13 }}>Engelle</Text></Pressable> : null}
         </View>
-        <Text style={{ color: connected ? t.brand : t.muted, fontSize: 12 }}>{connected ? "● Çevrimiçi" : "○ Bağlanıyor"}</Text>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+          <Ionicons name={connected ? "ellipse" : "ellipse-outline"} size={9} color={connected ? t.success : t.muted} />
+          <Text style={{ color: connected ? t.brand : t.muted, fontSize: 12 }}>{connected ? "Çevrimiçi" : "Bağlanıyor"}</Text>
+        </View>
       </View>
       <FlatList
         ref={listRef}
+        style={{ flex: 1 }}
         data={messages}
         keyExtractor={(m) => m.id}
         contentContainerStyle={{ padding: space.lg, gap: 10 }}
@@ -121,7 +128,7 @@ export default function ChatScreen() {
           );
         }}
       />
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingHorizontal: space.lg, paddingVertical: 6 }}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0, flexShrink: 0 }} contentContainerStyle={{ gap: 8, paddingHorizontal: space.lg, paddingVertical: 6 }}>
         {QUICK.map((q) => (
           <Pressable key={q} onPress={() => send(q)} style={{ borderWidth: 1, borderColor: t.border, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6 }}>
             <Text style={{ color: t.text, fontSize: 13 }}>{q}</Text>
@@ -139,11 +146,14 @@ export default function ChatScreen() {
       <Modal visible={reviewOpen} transparent animationType="slide" onRequestClose={() => setReviewOpen(false)}>
         <Pressable onPress={() => setReviewOpen(false)} style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "flex-end" }}>
           <Pressable onPress={(e) => e.stopPropagation()} style={{ backgroundColor: t.surface, borderTopLeftRadius: radius.lg, borderTopRightRadius: radius.lg, padding: space.lg, gap: space.md }}>
-            <Text style={{ fontSize: 18, fontWeight: "800", color: t.text }}>⭐ Değerlendir</Text>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+              <Ionicons name="star" size={20} color={t.accent} />
+              <Text style={{ fontSize: 18, fontWeight: "800", color: t.text }}>Değerlendir</Text>
+            </View>
             <View style={{ flexDirection: "row", justifyContent: "center", gap: 6 }}>
               {[1, 2, 3, 4, 5].map((n) => (
                 <Pressable key={n} onPress={() => setRating(n)}>
-                  <Text style={{ fontSize: 34, color: n <= rating ? t.accent : t.border }}>★</Text>
+                  <Ionicons name={n <= rating ? "star" : "star-outline"} size={34} color={n <= rating ? t.accent : t.border} />
                 </Pressable>
               ))}
             </View>
@@ -163,10 +173,13 @@ function OfferBubble({ m, mine, onAct }: { m: Message; mine: boolean; onAct: (id
   const t = useTheme();
   return (
     <View style={{ alignSelf: mine ? "flex-end" : "flex-start", maxWidth: "85%", backgroundColor: t.surface, borderWidth: 1, borderColor: t.brand, borderRadius: radius.md, padding: 12 }}>
-      <Text style={{ color: t.muted, fontSize: 12 }}>💰 {mine ? "Teklifin" : "Teklif"}</Text>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+        <Ionicons name="cash-outline" size={13} color={t.muted} />
+        <Text style={{ color: t.muted, fontSize: 12 }}>{mine ? "Teklifin" : "Teklif"}</Text>
+      </View>
       <Text style={{ fontSize: 20, fontWeight: "800", color: t.text }}>{formatPrice(m.offerAmount ?? 0)}</Text>
-      {m.offerStatus === "accepted" && <Text style={{ color: t.success, fontWeight: "600" }}>✓ Kabul edildi</Text>}
-      {m.offerStatus === "rejected" && <Text style={{ color: t.muted }}>✕ Reddedildi</Text>}
+      {m.offerStatus === "accepted" && <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}><Ionicons name="checkmark-circle" size={15} color={t.success} /><Text style={{ color: t.success, fontWeight: "600" }}>Kabul edildi</Text></View>}
+      {m.offerStatus === "rejected" && <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}><Ionicons name="close-circle" size={15} color={t.muted} /><Text style={{ color: t.muted }}>Reddedildi</Text></View>}
       {m.offerStatus === "pending" && !mine && (
         <View style={{ flexDirection: "row", gap: 6, marginTop: 8 }}>
           <Pressable onPress={() => onAct(m.id, "accept")} style={{ backgroundColor: t.brand, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 6 }}><Text style={{ color: "#fff", fontWeight: "600" }}>Kabul</Text></Pressable>

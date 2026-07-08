@@ -253,6 +253,9 @@ export class SatiyoClient {
   adminUnbanUser(id: string) {
     return this.request<{ ok: true }>(`/admin/users/${id}/unban`, { method: "POST" });
   }
+  adminUsers(q?: string) {
+    return this.request<AdminUser[]>("/admin/users", q ? { query: { q } } : undefined);
+  }
   adminSynonyms() {
     return this.request<{ id: string; term: string; aliases: string[] }[]>("/admin/synonyms");
   }
@@ -272,7 +275,7 @@ export class SatiyoClient {
 export interface AdminStats {
   users: {
     total: number; verified: number; stores: number; banned: number;
-    admins: number; active7d: number; new24h: number; new7d: number;
+    admins: number; active24h: number; active7d: number; new24h: number; new7d: number;
   };
   listings: {
     total: number; active: number; sold: number; reserved: number;
@@ -282,7 +285,25 @@ export interface AdminStats {
     conversations: number; messages: number; favorites: number;
     reviews: number; reportsOpen: number; reportsTotal: number;
   };
+  activity: {
+    events24h: number; events7d: number;
+    topEvents: { name: string; c24: number; c7: number }[];
+  };
   revenue: { totalKurus: number; payments: number };
+}
+
+export interface AdminUser {
+  id: string;
+  phone: string;
+  name: string | null;
+  city: string | null;
+  createdAt: number;
+  phoneVerified: boolean;
+  isStore: boolean;
+  isAdmin: boolean;
+  banned: boolean;
+  listingCount: number;
+  lastSeen: number | null;
 }
 
 export interface AdminReport {
@@ -300,7 +321,7 @@ export interface AppNotification {
   type: string;
   title: string;
   body: string | null;
-  data: { listingId?: string } | null;
+  data: { listingId?: string; conversationId?: string } | null;
   readAt: number | null;
   createdAt: number;
 }

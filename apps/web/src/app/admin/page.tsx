@@ -10,9 +10,10 @@ export default function AdminPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
   const qc = useQueryClient();
-  const [tab, setTab] = useState<"stats" | "reports" | "synonyms">("stats");
+  const [tab, setTab] = useState<"stats" | "users" | "reports" | "synonyms">("stats");
   const [newTerm, setNewTerm] = useState("");
   const [newAliases, setNewAliases] = useState("");
+  const [userQuery, setUserQuery] = useState("");
 
   useEffect(() => {
     if (!loading && !user) router.replace("/giris?next=/admin");
@@ -20,6 +21,7 @@ export default function AdminPage() {
   }, [user, loading, router]);
 
   const { data: stats } = useQuery({ queryKey: ["admin-stats"], queryFn: () => api.adminStats(), enabled: !!user?.isAdmin });
+  const { data: users } = useQuery({ queryKey: ["admin-users", userQuery], queryFn: () => api.adminUsers(userQuery || undefined), enabled: !!user?.isAdmin && tab === "users" });
   const { data: reports } = useQuery({ queryKey: ["admin-reports"], queryFn: () => api.adminReports("open"), enabled: !!user?.isAdmin && tab === "reports" });
   const { data: synonyms } = useQuery({ queryKey: ["admin-synonyms"], queryFn: () => api.adminSynonyms(), enabled: !!user?.isAdmin && tab === "synonyms" });
 
@@ -43,9 +45,9 @@ export default function AdminPage() {
     <div className="stack" style={{ gap: "var(--space-4)", maxWidth: 760, margin: "0 auto" }}>
       <h1 style={{ fontSize: 24 }}>🛡️ Admin Paneli</h1>
       <div className="row" style={{ gap: 8 }}>
-        {(["stats", "reports", "synonyms"] as const).map((tb) => (
+        {(["stats", "users", "reports", "synonyms"] as const).map((tb) => (
           <button key={tb} className={`badge ${tab === tb ? "badge-brand" : ""}`} style={{ padding: "8px 14px", cursor: "pointer", border: "1px solid var(--border)" }} onClick={() => setTab(tb)}>
-            {tb === "stats" ? "Özet" : tb === "reports" ? "Şikayetler" : "Synonym Sözlüğü"}
+            {tb === "stats" ? "Özet" : tb === "users" ? "Kullanıcılar" : tb === "reports" ? "Şikayetler" : "Synonym Sözlüğü"}
           </button>
         ))}
       </div>
@@ -56,6 +58,7 @@ export default function AdminPage() {
             ["Toplam", stats.users.total],
             ["Doğrulanmış", stats.users.verified],
             ["Mağaza", stats.users.stores],
+            ["Aktif (24s)", stats.users.active24h],
             ["Aktif (7g)", stats.users.active7d],
             ["Yeni (24s)", stats.users.new24h],
             ["Yeni (7g)", stats.users.new7d],
@@ -80,10 +83,50 @@ export default function AdminPage() {
             ["Açık şikayet", stats.engagement.reportsOpen],
             ["Toplam şikayet", stats.engagement.reportsTotal],
           ]} />
+          {stats.activity && (
+            <StatSection title="📈 Uygulama Etkinliği" items={[
+              ["Olay (24s)", stats.activity.events24h],
+              ["Olay (7g)", stats.activity.events7d],
+              ...stats.activity.topEvents.map((e) => [`${evLabel(e.name)} (7g)`, e.c7] as [string, number]),
+            ]} />
+          )}
           <StatSection title="💰 Gelir" items={[
             ["Toplam ₺", new Intl.NumberFormat("tr-TR").format(Math.round(stats.revenue.totalKurus / 100))],
             ["Ödeme sayısı", stats.revenue.payments],
           ]} />
+        </div>
+      )}
+
+      {tab === "users" && (
+        <div className="stack" style={{ gap: 12 }}>
+          <input className="input" placeholder="Ara: isim veya telefon" value={userQuery} onChange={(e) => setUserQuery(e.target.value)} />
+          {!users ? <div className="empty">Yükleniyor…</div> :
+           users.length === 0 ? <div className="empty">Kullanıcı bulunamadı</div> :
+           users.map((u) => (
+            <div key={u.id} className="card stack" style={{ padding: "var(--space-3) var(--space-4)", gap: 6 }}>
+              <div className="spread">
+                <strong>{u.name ?? "—"}</strong>
+                <span className="muted" style={{ fontSize: 13 }}>{u.phone}</span>
+              </div>
+              <div className="row" style={{ gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+                {u.isAdmin && <span className="badge badge-brand">admin</span>}
+                {u.isStore && <span className="badge">mağaza</span>}
+                {u.phoneVerified && <span className="badge">✓ doğrulanmış</span>}
+                {u.banned && <span className="badge" style={{ background: "var(--danger)", color: "#fff" }}>banlı</span>}
+                {u.city && <span className="muted" style={{ fontSize: 12 }}>📍 {u.city}</span>}
+              </div>
+              <div className="spread">
+                <span className="muted" style={{ fontSize: 12 }}>
+                  {u.listingCount} ilan · üyelik {timeAgo(u.createdAt)} · {u.lastSeen ? `son görülme ${timeAgo(u.lastSeen)}` : "hiç giriş yok"}
+                </span>
+                <button className="btn btn-ghost" onClick={async () => {
+                  if (u.banned) await api.adminUnbanUser(u.id); else await api.adminBanUser(u.id);
+                  qc.invalidateQueries({ queryKey: ["admin-users"] });
+                  qc.invalidateQueries({ queryKey: ["admin-stats"] });
+                }}>{u.banned ? "Ban kaldır" : "Banla"}</button>
+              </div>
+            </div>
+          ))}
         </div>
       )}
 
@@ -125,6 +168,20 @@ export default function AdminPage() {
       )}
     </div>
   );
+}
+
+const EVENT_LABELS: Record<string, string> = {
+  app_open: "Uygulama açılış",
+  screen_view: "Ekran görüntüleme",
+  view_listing: "İlan görüntüleme",
+  contact_seller: "Satıcıya mesaj",
+  publish_listing: "İlan yayınlama",
+  search: "Arama",
+  sign_up: "Kayıt",
+  add_favorite: "Favori ekleme",
+};
+function evLabel(name: string): string {
+  return EVENT_LABELS[name] ?? name;
 }
 
 function StatSection({ title, items }: { title: string; items: [string, number | string][] }) {

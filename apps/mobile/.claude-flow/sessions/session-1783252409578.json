@@ -1,0 +1,14 @@
+{
+  "id": "session-1783252409578",
+  "startedAt": "2026-07-05T11:53:29.578Z",
+  "cwd": "/Users/x/Desktop/Github-Projelerim/zınk-letgoclone/zink/apps/mobile",
+  "context": {},
+  "metrics": {
+    "edits": 47,
+    "commands": 0,
+    "tasks": 0,
+    "errors": 0
+  },
+  "endedAt": "2026-07-08T11:12:26.747Z",
+  "duration": 256737170
+}

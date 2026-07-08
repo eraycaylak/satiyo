@@ -1,13 +1,16 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Alert, Dimensions, Image, Modal, Pressable, ScrollView, Share, Text, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useQuery } from "@tanstack/react-query";
 import { getAttributeSchema, BOOST_PACKAGES } from "@satiyo/shared";
 import { api } from "@/lib/client";
+import { track } from "@/lib/analytics";
 import { useAuth } from "@/lib/auth";
 import { radius, space, useTheme } from "@/lib/theme";
 import { conditionLabel, formatNumber, formatPrice, locationText, priceTypeLabel, timeAgo } from "@/lib/format";
 import { Badge, Button, Loading } from "@/components/ui";
+import ImageView from "react-native-image-viewing";
 
 // Dijital "Öne Çıkar" satın alımı App Store'da IAP gerektirir (Guideline 3.1.1).
 // IAP kurulana kadar mobilde gizli. Web'de aktif kalır.
@@ -21,12 +24,17 @@ export default function ListingDetailScreen() {
   const [fav, setFav] = useState(false);
   const [boostOpen, setBoostOpen] = useState(false);
   const [boosting, setBoosting] = useState(false);
+  const [viewerIndex, setViewerIndex] = useState<number | null>(null);
   const W = Dimensions.get("window").width;
 
   const { data: listing, isLoading } = useQuery({
     queryKey: ["listing", id],
     queryFn: async () => { const l = await api.getListing(id!); setFav(!!l.favorited); return l; },
   });
+
+  useEffect(() => {
+    if (listing?.id) track("view_listing", { id: listing.id, category: listing.categoryId });
+  }, [listing?.id]);
 
   if (isLoading || !listing) return <Loading />;
   const schema = getAttributeSchema(listing.categoryId);
@@ -41,6 +49,7 @@ export default function ListingDetailScreen() {
     if (!user) return router.push("/giris");
     try {
       const conv = await api.startConversation(id!, offer ? "Teklifim var" : "Merhaba, ilanınız hâlâ satılık mı?");
+      track("contact_seller", { id, offer: !!offer });
       router.push(`/sohbet/${conv.id}`);
     } catch (e) { Alert.alert("Hata", (e as Error).message); }
   }
@@ -63,10 +72,20 @@ export default function ListingDetailScreen() {
   return (
     <ScrollView style={{ flex: 1, backgroundColor: t.bg }} contentContainerStyle={{ paddingBottom: space.xxl }}>
       <ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator={false}>
-        {listing.images.length ? listing.images.map((img) => (
-          <Image key={img.id} source={{ uri: img.url }} style={{ width: W, height: W * 0.75, backgroundColor: t.surface2 }} resizeMode="cover" />
-        )) : <View style={{ width: W, height: W * 0.75, backgroundColor: t.surface2, alignItems: "center", justifyContent: "center" }}><Text style={{ fontSize: 56, opacity: 0.35 }}>🖼️</Text></View>}
+        {listing.images.length ? listing.images.map((img, i) => (
+          <Pressable key={img.id} onPress={() => setViewerIndex(i)}>
+            <Image source={{ uri: img.url }} style={{ width: W, height: W, backgroundColor: t.surface2 }} resizeMode="cover" />
+          </Pressable>
+        )) : <View style={{ width: W, height: W, backgroundColor: t.surface2, alignItems: "center", justifyContent: "center" }}><Ionicons name="image-outline" size={56} color={t.muted} /></View>}
       </ScrollView>
+      {listing.images.length > 0 && (
+        <ImageView
+          images={listing.images.map((im) => ({ uri: im.url }))}
+          imageIndex={viewerIndex ?? 0}
+          visible={viewerIndex !== null}
+          onRequestClose={() => setViewerIndex(null)}
+        />
+      )}
 
       <View style={{ padding: space.lg, gap: space.md }}>
         <View style={{ flexDirection: "row", gap: 6 }}>
@@ -76,18 +95,20 @@ export default function ListingDetailScreen() {
         </View>
         <Text style={{ fontSize: 22, fontWeight: "800", color: t.text }}>{listing.title}</Text>
         <Text style={{ fontSize: 28, fontWeight: "900", color: t.text }}>{formatPrice(listing.price, listing.priceType)}</Text>
-        <Text style={{ color: t.muted }}>📍 {locationText(listing.city, listing.district)} · 👁 {listing.viewCount} · {timeAgo(listing.createdAt)}</Text>
+        <Text style={{ color: t.muted }}><Ionicons name="location-outline" size={14} color={t.muted} /> {locationText(listing.city, listing.district)} · <Ionicons name="eye-outline" size={14} color={t.muted} /> {listing.viewCount} · {timeAgo(listing.createdAt)}</Text>
 
         {!isOwner && listing.status === "active" && (
           <View style={{ flexDirection: "row", gap: 8 }}>
             <Button title="Mesaj At" onPress={() => message(false)} style={{ flex: 1 }} />
             {listing.priceType === "negotiable" && <Button title="Teklif Ver" variant="ghost" onPress={() => message(true)} style={{ flex: 1 }} />}
-            <Button title={fav ? "♥" : "♡"} variant="ghost" onPress={toggleFav} />
+            <Pressable onPress={toggleFav} style={{ borderWidth: 1, borderColor: t.border, borderRadius: radius.md, paddingVertical: 13, paddingHorizontal: 18, alignItems: "center", justifyContent: "center" }}>
+              <Ionicons name={fav ? "heart" : "heart-outline"} size={20} color={t.danger} />
+            </Pressable>
           </View>
         )}
 
         {SHOW_PAID_FEATURES && isOwner && listing.status === "active" && (
-          <Button title="✦ Öne Çıkar" onPress={() => setBoostOpen(true)} />
+          <Button title="Öne Çıkar" onPress={() => setBoostOpen(true)} />
         )}
 
         {listing.seller && (
@@ -99,15 +120,15 @@ export default function ListingDetailScreen() {
             <View style={{ flex: 1 }}>
               <Text style={{ fontWeight: "700", color: t.text }}>{listing.seller.storeName ?? listing.seller.name}</Text>
               <Text style={{ color: t.muted, fontSize: 12 }}>
-                {listing.seller.ratingCount ? `⭐ ${listing.seller.ratingAvg?.toFixed(1)} (${listing.seller.ratingCount})` : "Henüz puan yok"} · Üyelik {timeAgo(listing.seller.createdAt)}
+                {listing.seller.ratingCount ? <><Ionicons name="star" size={12} color={t.accent} /> {listing.seller.ratingAvg?.toFixed(1)} ({listing.seller.ratingCount})</> : "Henüz puan yok"} · Üyelik {timeAgo(listing.seller.createdAt)}
               </Text>
             </View>
             <Text style={{ color: t.muted, fontSize: 20 }}>›</Text>
           </Pressable>
         )}
 
-        <View style={{ backgroundColor: t.brandSoft, borderRadius: radius.md, padding: 12, flexDirection: "row", gap: 8 }}>
-          <Text>🛡️</Text>
+        <View style={{ backgroundColor: t.brandSoft, borderRadius: radius.md, padding: 12, flexDirection: "row", gap: 8, alignItems: "center" }}>
+          <Ionicons name="shield-checkmark-outline" size={16} color={t.brand} />
           <Text style={{ color: t.brand, fontSize: 13, flex: 1 }}>Kapora gönderme. Yüz yüze, güvenli yerde buluş.</Text>
         </View>
 
@@ -131,15 +152,18 @@ export default function ListingDetailScreen() {
         )}
 
         <View style={{ flexDirection: "row", gap: 8 }}>
-          <Button title="↗ Paylaş" variant="ghost" onPress={() => Share.share({ message: `${listing.title} — Satıyo'te` })} style={{ flex: 1 }} />
-          {!isOwner && <Button title="⚑ Şikayet" variant="ghost" onPress={report} style={{ flex: 1 }} />}
+          <Button title="Paylaş" variant="ghost" onPress={() => Share.share({ message: `${listing.title} — Satıyo'te` })} style={{ flex: 1 }} />
+          {!isOwner && <Button title="Şikayet" variant="ghost" onPress={report} style={{ flex: 1 }} />}
         </View>
       </View>
 
       <Modal visible={boostOpen} transparent animationType="slide" onRequestClose={() => setBoostOpen(false)}>
         <Pressable onPress={() => setBoostOpen(false)} style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "flex-end" }}>
           <Pressable onPress={(e) => e.stopPropagation()} style={{ backgroundColor: t.surface, borderTopLeftRadius: radius.lg, borderTopRightRadius: radius.lg, padding: space.lg, gap: space.md }}>
-            <Text style={{ fontSize: 18, fontWeight: "800", color: t.text }}>✦ İlanı Öne Çıkar</Text>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+              <Ionicons name="sparkles" size={18} color={t.accent} />
+              <Text style={{ fontSize: 18, fontWeight: "800", color: t.text }}>İlanı Öne Çıkar</Text>
+            </View>
             <Text style={{ color: t.muted }}>Daha fazla kişiye ulaş, daha hızlı sat.</Text>
             {BOOST_PACKAGES.map((p) => (
               <Pressable key={p.id} disabled={boosting} onPress={() => doBoost(p.id)}

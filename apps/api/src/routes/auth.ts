@@ -6,6 +6,7 @@ import { sha256, signJwt } from "../lib/crypto.js";
 import { newId, now } from "../lib/id.js";
 import { rowToUser } from "../lib/db.js";
 import { sendSms } from "../lib/sms.js";
+import { twilioConfigured, startVerification, checkVerification } from "../lib/twilio.js";
 
 const OTP_TTL_MS = 3 * 60 * 1000; // 3 dk
 const SESSION_TTL_S = 60 * 60 * 24 * 30; // 30 gün
@@ -33,6 +34,30 @@ async function issueSession(c: { env: Env }, phone: string, name: string, city?:
   const exp = iat + SESSION_TTL_S;
   const jti = newId("ses");
   await c.env.DB.prepare(`INSERT INTO sessions (id, user_id, created_at, expires_at) VALUES (?,?,?,?)`)
+    .bind(jti, user.id, now(), exp * 1000).run();
+  const token = await signJwt({ sub: user.id, phone: user.phone, jti, iat, exp }, c.env.JWT_SECRET);
+  return { token, user, expiresAt: exp * 1000 };
+}
+
+/** OTP doğrulandıktan sonra: gerçek kullanıcıyı oluştur/getir, banlıysa reddet, oturum aç. */
+async function finishLogin(c: { env: Env }, phone: string) {
+  let userRow = await c.env.DB.prepare(`SELECT * FROM users WHERE phone = ?`).bind(phone).first();
+  if (!userRow) {
+    const id = newId("usr");
+    await c.env.DB.prepare(
+      `INSERT INTO users (id, phone, name, created_at, phone_verified) VALUES (?, ?, ?, ?, 1)`,
+    ).bind(id, phone, "Satıyo Kullanıcısı", now()).run();
+    userRow = await c.env.DB.prepare(`SELECT * FROM users WHERE id = ?`).bind(id).first();
+  } else if (!userRow.phone_verified) {
+    await c.env.DB.prepare(`UPDATE users SET phone_verified = 1 WHERE id = ?`).bind(userRow.id).run();
+  }
+  if ((userRow as Record<string, unknown>).banned) fail(403, "banned", "Hesabınız askıya alındı");
+
+  const user = rowToUser(userRow as Record<string, unknown>);
+  const iat = Math.floor(now() / 1000);
+  const exp = iat + SESSION_TTL_S;
+  const jti = newId("ses");
+  await c.env.DB.prepare(`INSERT INTO sessions (id, user_id, created_at, expires_at) VALUES (?, ?, ?, ?)`)
     .bind(jti, user.id, now(), exp * 1000).run();
   const token = await signJwt({ sub: user.id, phone: user.phone, jti, iat, exp }, c.env.JWT_SECRET);
   return { token, user, expiresAt: exp * 1000 };
@@ -72,6 +97,13 @@ authRoutes.post("/otp/request", async (c) => {
   // Denetçi demo numarası: SMS gönderme, sabit kod kullanılacak.
   if (phone === REVIEWER_PHONE) return c.json({ ok: true as const, delivered: false });
 
+  // Twilio Verify varsa: kodu Twilio üretir/gönderir (kendi tablomuzu kullanmayız).
+  if (twilioConfigured(c.env)) {
+    const r = await startVerification(c.env, phone);
+    if (!r.ok) fail(400, "sms_failed", "Doğrulama kodu gönderilemedi. Numaranı kontrol edip tekrar dene.");
+    return c.json({ ok: true as const, delivered: true });
+  }
+
   // 6 haneli kod. Geliştirmede sabit 000000 yerine rastgele üretip dev'de döneriz.
   const code = (Math.floor(crypto.getRandomValues(new Uint32Array(1))[0]! % 1_000_000))
     .toString()
@@ -106,6 +138,14 @@ authRoutes.post("/otp/verify", async (c) => {
     return c.json(await issueSession(c, REVIEWER_PHONE, "Demo Kullanıcı", "İstanbul"));
   }
 
+  // Twilio Verify ile doğrula (kodu Twilio saklar; kendi tablomuza bakmayız).
+  if (twilioConfigured(c.env)) {
+    const approved = await checkVerification(c.env, phone, code);
+    if (!approved) fail(400, "otp_invalid", "Kod hatalı veya süresi doldu");
+    return c.json(await finishLogin(c, phone));
+  }
+
+  // Yerel OTP tablosu (Twilio yoksa — dev / NetGSM fallback).
   const row = await c.env.DB.prepare(`SELECT * FROM otp_codes WHERE phone = ?`).bind(phone).first();
   if (!row) fail(400, "otp_not_found", "Önce kod isteyin");
   if ((row!.attempts as number) >= 5) fail(429, "otp_locked", "Çok fazla deneme, yeni kod isteyin");
@@ -119,31 +159,5 @@ authRoutes.post("/otp/verify", async (c) => {
 
   await c.env.DB.prepare(`DELETE FROM otp_codes WHERE phone = ?`).bind(phone).run();
 
-  let userRow = await c.env.DB.prepare(`SELECT * FROM users WHERE phone = ?`).bind(phone).first();
-  if (!userRow) {
-    const id = newId("usr");
-    await c.env.DB.prepare(
-      `INSERT INTO users (id, phone, name, created_at, phone_verified) VALUES (?, ?, ?, ?, 1)`,
-    )
-      .bind(id, phone, "Satıyo Kullanıcısı", now())
-      .run();
-    userRow = await c.env.DB.prepare(`SELECT * FROM users WHERE id = ?`).bind(id).first();
-  } else if (!userRow.phone_verified) {
-    await c.env.DB.prepare(`UPDATE users SET phone_verified = 1 WHERE id = ?`).bind(userRow.id).run();
-  }
-
-  if ((userRow as Record<string, unknown>).banned) fail(403, "banned", "Hesabınız askıya alındı");
-
-  const user = rowToUser(userRow as Record<string, unknown>);
-  const iat = Math.floor(now() / 1000);
-  const exp = iat + SESSION_TTL_S;
-  const jti = newId("ses");
-  await c.env.DB.prepare(
-    `INSERT INTO sessions (id, user_id, created_at, expires_at) VALUES (?, ?, ?, ?)`,
-  )
-    .bind(jti, user.id, now(), exp * 1000)
-    .run();
-
-  const token = await signJwt({ sub: user.id, phone: user.phone, jti, iat, exp }, c.env.JWT_SECRET);
-  return c.json({ token, user, expiresAt: exp * 1000 });
+  return c.json(await finishLogin(c, phone));
 });

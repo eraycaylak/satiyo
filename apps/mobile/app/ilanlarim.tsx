@@ -1,4 +1,5 @@
 import { Alert, FlatList, Image, Pressable, Text, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/client";
@@ -35,14 +36,14 @@ export default function MyListingsScreen() {
         <View style={{ flexDirection: "row", gap: space.md, backgroundColor: t.surface, borderWidth: 1, borderColor: t.border, borderRadius: radius.lg, padding: space.md }}>
           <Pressable onPress={() => router.push(`/ilan/${l.id}`)} style={{ width: 64, height: 64, borderRadius: radius.md, overflow: "hidden", backgroundColor: t.surface2 }}>
             {l.images[0] ? <Image source={{ uri: l.images[0].url }} style={{ width: "100%", height: "100%" }} /> :
-              <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}><Text style={{ fontSize: 22, opacity: 0.4 }}>🖼️</Text></View>}
+              <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}><Ionicons name="image-outline" size={24} color={t.muted} /></View>}
           </Pressable>
           <View style={{ flex: 1, gap: 3 }}>
             <Text style={{ fontWeight: "700", color: t.text }} numberOfLines={1}>{l.title}</Text>
             <Text style={{ fontWeight: "800", color: t.text }}>{formatPrice(l.price, l.priceType)}</Text>
             <View style={{ flexDirection: "row", gap: 8, alignItems: "center" }}>
               <Badge label={statusLabel[l.status]!} />
-              <Text style={{ color: t.muted, fontSize: 11 }}>👁 {l.viewCount} · {timeAgo(l.createdAt)}</Text>
+              <Text style={{ color: t.muted, fontSize: 11 }}><Ionicons name="eye-outline" size={11} color={t.muted} /> {l.viewCount} · {timeAgo(l.createdAt)}</Text>
             </View>
           </View>
           <Pressable onPress={() => remove(l.id)} hitSlop={8}><Text style={{ color: t.danger }}>Kaldır</Text></Pressable>

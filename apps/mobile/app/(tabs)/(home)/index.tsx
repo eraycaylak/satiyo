@@ -1,9 +1,11 @@
-import { useState } from "react";
+import { useState, type ComponentProps } from "react";
 import { Alert, Dimensions, FlatList, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { getChildren, type SearchFilters, type SortOption } from "@satiyo/shared";
 import { api } from "@/lib/client";
+import { track } from "@/lib/analytics";
 import { useAuth } from "@/lib/auth";
 import { radius, space, useTheme } from "@/lib/theme";
 import { ListingCard } from "@/components/ListingCard";
@@ -15,6 +17,21 @@ const SORTS: { v: SortOption; l: string }[] = [
   { v: "relevance", l: "İlgili" }, { v: "newest", l: "En yeni" },
   { v: "price_asc", l: "Artan" }, { v: "price_desc", l: "Azalan" },
 ];
+
+// Kategori kimliği → renkli-daire vektör ikon (letgo tarzı). Paylaşılan
+// categories.ts'in emoji `icon` alanına DOKUNULMAZ (web onu kullanır); bu eşleme
+// yalnızca mobil render'a özeldir. Bilinmeyen kimlik nötr griye düşer.
+type IoniconName = ComponentProps<typeof Ionicons>["name"];
+const CAT_META: Record<string, { icon: IoniconName; color: string }> = {
+  elektronik: { icon: "hardware-chip", color: "#14b8a6" },
+  "ev-yasam": { icon: "bed", color: "#f59e0b" },
+  moda: { icon: "shirt", color: "#ec4899" },
+  vasita: { icon: "car-sport", color: "#3b82f6" },
+  hobi: { icon: "game-controller", color: "#8b5cf6" },
+  bebek: { icon: "balloon", color: "#22c55e" },
+};
+const ALL_META: { icon: IoniconName; color: string } = { icon: "grid", color: "#64748b" };
+const catMeta = (id?: string) => (id && CAT_META[id]) || ALL_META;
 
 export default function ExploreScreen() {
   const t = useTheme();
@@ -56,19 +73,22 @@ export default function ExploreScreen() {
         <TextInput
           value={q}
           onChangeText={setQ}
-          onSubmitEditing={() => setSubmitted(q.trim())}
+          onSubmitEditing={() => { const term = q.trim(); setSubmitted(term); if (term) track("search", { q: term }); }}
           returnKeyType="search"
           placeholder="Ne arıyorsun? (iPhone, koltuk, bisiklet)"
           placeholderTextColor={t.muted}
           style={{ backgroundColor: t.surface, borderWidth: 1, borderColor: t.border, borderRadius: radius.md, padding: 12, color: t.text }}
         />
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
-          {[{ id: undefined, name: "Tümü", icon: "" }, ...roots].map((c) => {
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: space.md, paddingVertical: 2 }}>
+          {[{ id: undefined, name: "Tümü" }, ...roots].map((c) => {
             const active = categoryId === c.id;
+            const meta = catMeta(c.id);
             return (
-              <Pressable key={c.id ?? "all"} onPress={() => setCategoryId(c.id)}
-                style={{ borderWidth: 1, borderColor: active ? t.brand : t.border, backgroundColor: active ? t.brandSoft : t.surface, borderRadius: 999, paddingHorizontal: 14, paddingVertical: 7 }}>
-                <Text style={{ color: active ? t.brand : t.text, fontWeight: "600", fontSize: 13 }}>{c.icon ? c.icon + " " : ""}{c.name}</Text>
+              <Pressable key={c.id ?? "all"} onPress={() => setCategoryId(c.id)} style={{ alignItems: "center", gap: 5, width: 64 }}>
+                <View style={{ width: 56, height: 56, borderRadius: 999, backgroundColor: meta.color, alignItems: "center", justifyContent: "center", borderWidth: active ? 3 : 0, borderColor: t.brand }}>
+                  <Ionicons name={meta.icon} size={26} color="#fff" />
+                </View>
+                <Text numberOfLines={1} style={{ fontSize: 11, color: active ? t.brand : t.text, fontWeight: active ? "700" : "500" }}>{c.name}</Text>
               </Pressable>
             );
           })}
@@ -83,17 +103,17 @@ export default function ExploreScreen() {
           </ScrollView>
           {hasCriteria && (
             <Pressable onPress={saveSearch} style={{ borderWidth: 1, borderColor: t.brand, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6 }}>
-              <Text style={{ color: t.brand, fontSize: 13, fontWeight: "600" }}>🔔 Kaydet</Text>
+              <Text style={{ color: t.brand, fontSize: 13, fontWeight: "600" }}><Ionicons name="notifications-outline" size={13} color={t.brand} /> Kaydet</Text>
             </Pressable>
           )}
           <Pressable onPress={() => setView(view === "list" ? "map" : "list")} style={{ borderWidth: 1, borderColor: t.border, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6 }}>
-            <Text style={{ color: t.text, fontSize: 13 }}>{view === "list" ? "🗺️" : "☰"}</Text>
+            <Ionicons name={view === "list" ? "map-outline" : "list-outline"} size={16} color={t.text} />
           </Pressable>
         </View>
       </View>
 
       {isLoading ? <Loading /> :
-        isError ? <Empty icon="⚠️" text="Bir şeyler ters gitti." /> :
+        isError ? <Empty icon="warning-outline" text="Bir şeyler ters gitti." /> :
         !data || data.items.length === 0 ? <Empty text={`Sonuç bulunamadı${submitted ? ` — “${submitted}”` : ""}.`} /> :
         view === "map" ? <ListingsMap listings={data.items} /> :
         <FlatList
@@ -109,7 +129,7 @@ export default function ExploreScreen() {
             <View>
               {browsing && reco && reco.items.length > 0 && (
                 <View style={{ marginBottom: space.sm }}>
-                  <Text style={{ paddingHorizontal: space.lg, fontSize: 16, fontWeight: "800", color: t.text, marginBottom: 6 }}>✨ Senin için</Text>
+                  <Text style={{ paddingHorizontal: space.lg, fontSize: 16, fontWeight: "800", color: t.text, marginBottom: 6 }}><Ionicons name="sparkles" size={16} color={t.accent} /> Senin için</Text>
                   <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: GAP, paddingHorizontal: space.lg }}>
                     {reco.items.map((l) => <ListingCard key={l.id} listing={l} width={150} />)}
                   </ScrollView>

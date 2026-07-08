@@ -5,6 +5,7 @@ import { badRequest, conflict, forbidden, notFound } from "../lib/http.js";
 import { newId, now } from "../lib/id.js";
 import { rowToMessage } from "../lib/db.js";
 import { areBlocked } from "../lib/blocks.js";
+import { notify } from "../lib/notify.js";
 import { inspectMessage } from "../lib/safety.js";
 import { optionalAuth, requireAuth } from "../middleware/auth.js";
 import { verifyJwt } from "../lib/crypto.js";
@@ -102,6 +103,7 @@ conversationRoutes.post("/", requireAuth, async (c) => {
   ]);
   const msg = await c.env.DB.prepare(`SELECT * FROM messages WHERE id = ?`).bind(msgId).first();
   await broadcast(c.env, conv!.id as string, { kind: "message", message: rowToMessage(msg as Record<string, unknown>) });
+  await notify(c.env.DB, listing!.seller_id as string, "message", `Yeni mesaj: ${listing!.title as string}`, body.slice(0, 80), { conversationId: conv!.id as string, listingId });
 
   return c.json({
     id: conv!.id, listingId: conv!.listing_id, buyerId: conv!.buyer_id, sellerId: conv!.seller_id,
@@ -155,6 +157,12 @@ conversationRoutes.post("/:id/messages", requireAuth, async (c) => {
   const msg = await c.env.DB.prepare(`SELECT * FROM messages WHERE id = ?`).bind(msgId).first();
   const message = rowToMessage(msg as Record<string, unknown>);
   await broadcast(c.env, id, { kind: "message", message });
+  await notify(
+    c.env.DB, otherId, input.type === "offer" ? "offer" : "message",
+    input.type === "offer" ? "Yeni teklif" : "Yeni mesaj",
+    input.type === "offer" ? `${input.offerAmount} ₺ teklif geldi` : (input.body ?? "").slice(0, 80),
+    { conversationId: id, listingId: conv!.listing_id as string },
+  );
 
   return c.json({ ...message, ...(flag.flagged ? { safetyWarning: flag.reasons } : {}) }, 201);
 });
@@ -190,6 +198,7 @@ conversationRoutes.post("/:id/messages/:msgId/offer", requireAuth, async (c) => 
     const m = await c.env.DB.prepare(`SELECT * FROM messages WHERE id = ?`).bind(newMsgId).first();
     const message = rowToMessage(m as Record<string, unknown>);
     await broadcast(c.env, id, { kind: "message", message });
+    await notify(c.env.DB, offer!.sender_id as string, "offer", "Karşı teklif geldi", `${counterAmount} ₺`, { conversationId: id, listingId: conv!.listing_id as string });
     return c.json(message);
   }
 
@@ -201,6 +210,12 @@ conversationRoutes.post("/:id/messages/:msgId/offer", requireAuth, async (c) => 
   const m = await c.env.DB.prepare(`SELECT * FROM messages WHERE id = ?`).bind(msgId).first();
   const message = rowToMessage(m as Record<string, unknown>);
   await broadcast(c.env, id, { kind: "offer_update", message });
+  await notify(
+    c.env.DB, offer!.sender_id as string, "offer",
+    status === "accepted" ? "Teklifin kabul edildi 🎉" : "Teklifin reddedildi",
+    status === "accepted" ? "Satıcı teklifini kabul etti. Buluşmak için mesajlaş." : null,
+    { conversationId: id, listingId: conv!.listing_id as string },
+  );
   return c.json(message);
 });
 

@@ -124,7 +124,7 @@ listingRoutes.get("/", optionalAuth, async (c) => {
   switch (f.sort) {
     case "price_asc": orderBy = "l.price ASC, l.created_at DESC"; break;
     case "price_desc": orderBy = "l.price DESC, l.created_at DESC"; break;
-    case "newest": orderBy = `${boostKey}, l.created_at DESC`; orderBinds.push(ts); break;
+    case "newest": orderBy = "l.created_at DESC"; break;
     case "nearest":
       if (f.lat != null && f.lng != null) {
         orderBy = "((l.lat - ?) * (l.lat - ?) + (l.lng - ?) * (l.lng - ?)) ASC, l.created_at DESC";
@@ -134,7 +134,7 @@ listingRoutes.get("/", optionalAuth, async (c) => {
     case "relevance":
     default:
       if (hasQuery) { orderBy = `${boostKey}, bm25(listings_fts, 10.0, 2.0) ASC`; orderBinds.push(ts); }
-      else { orderBy = `${boostKey}, l.created_at DESC`; orderBinds.push(ts); }
+      else { orderBy = `${boostKey}, l.view_count DESC, l.created_at DESC`; orderBinds.push(ts); }
   }
 
   const offset = (f.page - 1) * f.pageSize;
@@ -157,6 +157,8 @@ listingRoutes.get("/", optionalAuth, async (c) => {
     favoriteUserId: user?.id ?? null,
   });
 
+  // Dinamik akış (kişiye özel engel filtresi + sıralama + yeni ilanlar) edge'de cache'lenmemeli.
+  c.header("cache-control", "no-store");
   return c.json({
     items: listings,
     page: f.page,

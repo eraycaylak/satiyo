@@ -4,10 +4,12 @@ import { useRouter } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
 import { getAttributeSchema, getCategory, getChildren, CATEGORIES, type PriceType } from "@satiyo/shared";
 import { api } from "@/lib/client";
+import { track } from "@/lib/analytics";
 import { useAuth } from "@/lib/auth";
 import { uploadImage, type UploadedImage } from "@/lib/upload";
 import { radius, space, useTheme } from "@/lib/theme";
 import { Badge, Button, Loading } from "@/components/ui";
+import { CityPicker } from "@/components/CityPicker";
 
 const leaf = () => CATEGORIES.filter((c) => getChildren(c.id).length === 0);
 
@@ -65,8 +67,11 @@ export default function CreateListingScreen() {
         city: city || undefined, district: district || undefined,
         attributes, imageIds: images.map((i) => i.imageId), status: "active",
       });
+      track("publish_listing", { id: l.id, category: categoryId, priceType });
+      setBusy(false);
       router.dismissAll?.();
-      router.replace(`/ilan/${l.id}`);
+      // Modal kapandıktan SONRA (aynı tick'te değil) detaya git — yarış/​takılma önlenir.
+      requestAnimationFrame(() => router.push(`/ilan/${l.id}`));
     } catch (e) { Alert.alert("Hata", (e as Error).message); setBusy(false); }
   }
 
@@ -135,7 +140,7 @@ export default function CreateListingScreen() {
       )}
 
       <View style={{ flexDirection: "row", gap: 8 }}>
-        <TextInput value={city} onChangeText={setCity} placeholder="Şehir" placeholderTextColor={t.muted} style={[input, { flex: 1 }]} />
+        <View style={{ flex: 1 }}><CityPicker value={city} onSelect={setCity} placeholder="Şehir" /></View>
         <TextInput value={district} onChangeText={setDistrict} placeholder="Semt" placeholderTextColor={t.muted} style={[input, { flex: 1 }]} />
       </View>
 

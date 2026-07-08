@@ -17,7 +17,7 @@ export default function FavoritesScreen() {
   if (loading) return <Loading />;
   if (!user) return (
     <View style={{ flex: 1, backgroundColor: t.bg, padding: space.lg, justifyContent: "center", gap: space.md }}>
-      <Empty icon="♥" text="Favorilerini görmek için giriş yap." />
+      <Empty icon="heart-outline" text="Favorilerini görmek için giriş yap." />
       <Button title="Giriş yap" onPress={() => router.push("/giris")} />
     </View>
   );
@@ -25,7 +25,7 @@ export default function FavoritesScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: t.bg }}>
       {isLoading ? <Loading /> :
-        !data || data.items.length === 0 ? <Empty icon="♥" text="Henüz favori yok." /> :
+        !data || data.items.length === 0 ? <Empty icon="heart-outline" text="Henüz favori yok." /> :
         <FlatList
           data={data.items} keyExtractor={(l) => l.id} numColumns={2}
           columnWrapperStyle={{ gap: space.md, paddingHorizontal: space.lg }}

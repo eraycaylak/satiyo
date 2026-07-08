@@ -1,4 +1,5 @@
 import { Alert, Dimensions, FlatList, Pressable, Text, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/client";
@@ -48,13 +49,14 @@ export default function SellerScreen() {
         <View style={{ flex: 1 }}>
           <Text style={{ fontSize: 20, fontWeight: "800", color: t.text }}>{seller?.storeName ?? seller?.name ?? "…"}</Text>
           <Text style={{ color: t.muted, fontSize: 13 }}>
-            {seller?.ratingCount ? `⭐ ${seller.ratingAvg?.toFixed(1)} (${seller.ratingCount})` : "Henüz puan yok"}
+            {seller?.ratingCount ? <><Ionicons name="star" size={12} color={t.accent} /> {seller.ratingAvg?.toFixed(1)} ({seller.ratingCount})</> : "Henüz puan yok"}
             {seller ? ` · Üyelik ${timeAgo(seller.createdAt)}` : ""}
           </Text>
         </View>
         {seller && user?.id !== seller.id && (
-          <Pressable onPress={blockSeller} hitSlop={10}>
-            <Text style={{ color: t.danger, fontSize: 13, fontWeight: "600" }}>⊘ Engelle</Text>
+          <Pressable onPress={blockSeller} hitSlop={10} style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+            <Ionicons name="remove-circle-outline" size={15} color={t.danger} />
+            <Text style={{ color: t.danger, fontSize: 13, fontWeight: "600" }}>Engelle</Text>
           </Pressable>
         )}
       </View>

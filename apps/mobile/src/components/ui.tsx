@@ -1,5 +1,9 @@
 import { ActivityIndicator, Pressable, Text, View, type ViewStyle } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import type { ComponentProps } from "react";
 import { radius, space, useTheme } from "@/lib/theme";
+
+type IconName = ComponentProps<typeof Ionicons>["name"];
 
 export function Button({
   title, onPress, variant = "primary", disabled, loading, style,
@@ -40,11 +44,11 @@ export function Badge({ label, tone = "default" }: { label: string; tone?: "defa
   );
 }
 
-export function Empty({ icon = "🔍", text }: { icon?: string; text: string }) {
+export function Empty({ icon = "search-outline", text }: { icon?: IconName; text: string }) {
   const t = useTheme();
   return (
     <View style={{ alignItems: "center", padding: space.xxl, gap: space.sm }}>
-      <Text style={{ fontSize: 40 }}>{icon}</Text>
+      <Ionicons name={icon} size={44} color={t.muted} />
       <Text style={{ color: t.muted, textAlign: "center" }}>{text}</Text>
     </View>
   );

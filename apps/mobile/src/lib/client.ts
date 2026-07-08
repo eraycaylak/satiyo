@@ -37,4 +37,6 @@ export const tokenStore = {
 export const api = new SatiyoClient({
   baseUrl: API_BASE,
   getToken: () => cachedToken,
+  // Gerçek 401'de token'ı temizle (geçersiz/süresi dolmuş oturum). Ağ/5xx'te dokunma.
+  onUnauthorized: () => { void tokenStore.clear(); },
 });
