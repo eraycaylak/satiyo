@@ -2,7 +2,7 @@
   "expo": {
     "name": "Satıyo",
     "slug": "satiyo",
-    "version": "1.0.2",
+    "version": "1.0.3",
     "scheme": "satiyo",
     "icon": "./assets/icon.png",
     "orientation": "portrait",
