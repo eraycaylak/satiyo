@@ -34,7 +34,13 @@ export function CityPicker({
         }}
       >
         <Text style={{ color: value ? t.text : t.muted, fontSize: 16 }}>{value || placeholder}</Text>
-        <Ionicons name="chevron-down" size={18} color={t.muted} />
+        {value ? (
+          <Pressable onPress={() => onSelect("")} hitSlop={10}>
+            <Ionicons name="close-circle" size={19} color={t.muted} />
+          </Pressable>
+        ) : (
+          <Ionicons name="chevron-down" size={18} color={t.muted} />
+        )}
       </Pressable>
 
       <Modal visible={open} transparent animationType="slide" onRequestClose={() => setOpen(false)}>
