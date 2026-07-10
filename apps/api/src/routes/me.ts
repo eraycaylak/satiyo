@@ -5,11 +5,29 @@ import { badRequest, fail } from "../lib/http.js";
 import { hydrateListings, rowToListing, rowToSeller, rowToUser } from "../lib/db.js";
 import { newId, now } from "../lib/id.js";
 import { getPaymentProvider } from "../lib/payments.js";
+import { getBalance } from "../lib/credit.js";
 import { requireAuth } from "../middleware/auth.js";
 
 export const meRoutes = new Hono<{ Bindings: Env; Variables: Variables }>();
 
 meRoutes.use("*", requireAuth);
+
+// Reklam kredisi cüzdanı — bakiye (kuruş) + son hareketler
+meRoutes.get("/wallet", async (c) => {
+  const user = c.get("user");
+  const balance = await getBalance(c.env.DB, user.id);
+  const rows = await c.env.DB.prepare(
+    `SELECT txn_type, amount_minor, ref_type, ref_id, created_at FROM credit_ledger WHERE user_id = ? ORDER BY created_at DESC LIMIT 50`,
+  ).bind(user.id).all();
+  const history = (rows.results as Record<string, unknown>[]).map((r) => ({
+    type: r.txn_type as string,
+    amount: Number(r.amount_minor),
+    refType: (r.ref_type as string) ?? null,
+    refId: (r.ref_id as string) ?? null,
+    createdAt: Number(r.created_at),
+  }));
+  return c.json({ balance, history });
+});
 
 // Takip ettiğim satıcılar
 meRoutes.get("/following", async (c) => {

@@ -152,6 +152,13 @@ export class SatiyoClient {
   following() {
     return this.request<PublicSeller[]>("/me/following");
   }
+  // Reklam kredisi cüzdanı (bakiye kuruş + hareketler)
+  wallet() {
+    return this.request<{
+      balance: number;
+      history: { type: string; amount: number; refType: string | null; refId: string | null; createdAt: number }[];
+    }>("/me/wallet");
+  }
   getSeller(sellerId: string) {
     return this.request<PublicSeller>(`/sellers/${sellerId}`);
   }

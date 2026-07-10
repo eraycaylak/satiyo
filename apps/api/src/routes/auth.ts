@@ -5,6 +5,7 @@ import { badRequest, fail } from "../lib/http.js";
 import { sha256, signJwt } from "../lib/crypto.js";
 import { newId, now } from "../lib/id.js";
 import { rowToUser } from "../lib/db.js";
+import { grantSignupBonusOnce } from "../lib/credit.js";
 import { sendSms } from "../lib/sms.js";
 import { twilioConfigured, startVerification, checkVerification } from "../lib/twilio.js";
 
@@ -30,6 +31,8 @@ async function issueSession(c: { env: Env }, phone: string, name: string, city?:
     userRow = await c.env.DB.prepare(`SELECT * FROM users WHERE id = ?`).bind(id).first();
   }
   const user = rowToUser(userRow as Record<string, unknown>);
+  // Üye ol → 100 TL reklam kredisi (numara başına 1 kez; idempotent, best-effort)
+  await grantSignupBonusOnce(c.env.DB, user.id, user.phone);
   const iat = Math.floor(now() / 1000);
   const exp = iat + SESSION_TTL_S;
   const jti = newId("ses");
@@ -54,6 +57,8 @@ async function finishLogin(c: { env: Env }, phone: string) {
   if ((userRow as Record<string, unknown>).banned) fail(403, "banned", "Hesabınız askıya alındı");
 
   const user = rowToUser(userRow as Record<string, unknown>);
+  // Üye ol → 100 TL reklam kredisi (numara başına 1 kez; idempotent, best-effort)
+  await grantSignupBonusOnce(c.env.DB, user.id, user.phone);
   const iat = Math.floor(now() / 1000);
   const exp = iat + SESSION_TTL_S;
   const jti = newId("ses");
@@ -79,6 +84,8 @@ authRoutes.post("/dev-login", async (c) => {
     userRow = await c.env.DB.prepare(`SELECT * FROM users WHERE id = ?`).bind(id).first();
   }
   const user = rowToUser(userRow as Record<string, unknown>);
+  // Üye ol → 100 TL reklam kredisi (numara başına 1 kez; idempotent, best-effort)
+  await grantSignupBonusOnce(c.env.DB, user.id, user.phone);
   const iat = Math.floor(now() / 1000);
   const exp = iat + SESSION_TTL_S;
   const jti = newId("ses");
