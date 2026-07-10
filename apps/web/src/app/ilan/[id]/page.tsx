@@ -1,6 +1,7 @@
 export const runtime = "edge";
 import type { Metadata } from "next";
 import { ListingDetail } from "@/components/ListingDetail";
+import { AppBanner } from "@/components/AppBanner";
 
 const API = process.env.NEXT_PUBLIC_API_BASE ?? "https://api.satiyo.app";
 const SITE = "https://satiyo.app";
@@ -70,5 +71,10 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 
 export default async function ListingPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  return <ListingDetail id={id} />;
+  return (
+    <>
+      <AppBanner path={`/ilan/${id}`} />
+      <ListingDetail id={id} />
+    </>
+  );
 }
