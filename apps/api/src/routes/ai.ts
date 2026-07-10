@@ -37,6 +37,19 @@ aiRoutes.post("/suggest-listing", requireAuth, async (c) => {
   }
   if (!inline) badRequest("imageUrl veya imageBase64 gerekli");
 
+  // Günlük kota (maliyet + kötüye kullanım koruması)
+  const user = c.get("user");
+  const DAILY_LIMIT = 30;
+  const day = new Date().toISOString().slice(0, 10);
+  const usage = await c.env.DB.prepare(`SELECT count FROM ai_usage WHERE user_id = ? AND day = ?`).bind(user.id, day).first();
+  if (usage && Number(usage.count) >= DAILY_LIMIT) {
+    fail(429, "ai_quota", `Günlük AI ilan oluşturma hakkın doldu (${DAILY_LIMIT}/gün). Yarın tekrar deneyebilirsin.`);
+  }
+  // Gemini'ye gitmeden önce say (başarısız denemeler de sayılır → retry-spam engeli)
+  await c.env.DB.prepare(
+    `INSERT INTO ai_usage (user_id, day, count) VALUES (?, ?, 1) ON CONFLICT(user_id, day) DO UPDATE SET count = count + 1`,
+  ).bind(user.id, day).run();
+
   const cats = leafCategories();
   const prompt = `Bu ikinci-el ürün fotoğrafını incele ve Türkiye ikinci-el pazaryeri için ilan önerisi üret.
 - title: kısa, net Türkçe başlık (marka/model görünüyorsa yaz), en fazla 60 karakter.
