@@ -46,6 +46,8 @@ export interface PublicSeller {
   identityVerified: boolean;
   ratingAvg?: number;
   ratingCount?: number;
+  followerCount?: number;
+  isFollowing?: boolean;
 }
 
 export interface ListingImage {

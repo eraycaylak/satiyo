@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { savedSearchSchema, updateProfileSchema, STORE_MEMBERSHIP } from "@satiyo/shared";
 import type { Env, Variables } from "../env.js";
 import { badRequest, fail } from "../lib/http.js";
-import { hydrateListings, rowToListing, rowToUser } from "../lib/db.js";
+import { hydrateListings, rowToListing, rowToSeller, rowToUser } from "../lib/db.js";
 import { newId, now } from "../lib/id.js";
 import { getPaymentProvider } from "../lib/payments.js";
 import { requireAuth } from "../middleware/auth.js";
@@ -10,6 +10,18 @@ import { requireAuth } from "../middleware/auth.js";
 export const meRoutes = new Hono<{ Bindings: Env; Variables: Variables }>();
 
 meRoutes.use("*", requireAuth);
+
+// Takip ettiğim satıcılar
+meRoutes.get("/following", async (c) => {
+  const user = c.get("user");
+  const rows = await c.env.DB.prepare(
+    `SELECT u.*, AVG(r.rating) AS rating_avg, COUNT(r.id) AS rating_count
+     FROM follows f JOIN users u ON u.id = f.following_id
+     LEFT JOIN reviews r ON r.reviewed_id = u.id
+     WHERE f.follower_id = ? GROUP BY u.id ORDER BY f.created_at DESC LIMIT 200`,
+  ).bind(user.id).all();
+  return c.json((rows.results as Record<string, unknown>[]).map((row) => ({ ...rowToSeller(row), isFollowing: true })));
+});
 
 meRoutes.get("/", async (c) => {
   const user = c.get("user");

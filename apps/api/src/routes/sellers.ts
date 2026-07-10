@@ -1,20 +1,46 @@
 import { Hono } from "hono";
 import type { Env, Variables } from "../env.js";
-import { notFound } from "../lib/http.js";
+import { badRequest, notFound } from "../lib/http.js";
+import { now } from "../lib/id.js";
 import { hydrateListings, rowToListing, rowToReview, rowToSeller } from "../lib/db.js";
-import { optionalAuth } from "../middleware/auth.js";
+import { optionalAuth, requireAuth } from "../middleware/auth.js";
 
 export const sellerRoutes = new Hono<{ Bindings: Env; Variables: Variables }>();
 
-sellerRoutes.get("/:id", async (c) => {
+sellerRoutes.get("/:id", optionalAuth, async (c) => {
   const id = c.req.param("id");
+  const viewer = c.get("user");
   const row = await c.env.DB.prepare(
     `SELECT u.*, AVG(r.rating) AS rating_avg, COUNT(r.id) AS rating_count
      FROM users u LEFT JOIN reviews r ON r.reviewed_id = u.id
      WHERE u.id = ? GROUP BY u.id`,
   ).bind(id).first();
   if (!row) notFound("Satıcı bulunamadı");
-  return c.json(rowToSeller(row as Record<string, unknown>));
+  const fc = await c.env.DB.prepare(`SELECT COUNT(*) AS n FROM follows WHERE following_id = ?`).bind(id).first();
+  const isFollowing = viewer
+    ? !!(await c.env.DB.prepare(`SELECT 1 FROM follows WHERE follower_id = ? AND following_id = ?`).bind(viewer.id, id).first())
+    : false;
+  return c.json({ ...rowToSeller(row as Record<string, unknown>), followerCount: Number(fc?.n ?? 0), isFollowing });
+});
+
+// Satıcıyı takip et / bırak
+sellerRoutes.post("/:id/follow", requireAuth, async (c) => {
+  const id = c.req.param("id");
+  const user = c.get("user");
+  if (id === user.id) badRequest("Kendinizi takip edemezsiniz");
+  const exists = await c.env.DB.prepare(`SELECT 1 FROM users WHERE id = ?`).bind(id).first();
+  if (!exists) notFound("Kullanıcı bulunamadı");
+  await c.env.DB.prepare(
+    `INSERT INTO follows (follower_id, following_id, created_at) VALUES (?,?,?) ON CONFLICT DO NOTHING`,
+  ).bind(user.id, id, now()).run();
+  return c.json({ ok: true as const });
+});
+
+sellerRoutes.delete("/:id/follow", requireAuth, async (c) => {
+  const id = c.req.param("id");
+  const user = c.get("user");
+  await c.env.DB.prepare(`DELETE FROM follows WHERE follower_id = ? AND following_id = ?`).bind(user.id, id).run();
+  return c.json({ ok: true as const });
 });
 
 sellerRoutes.get("/:id/listings", optionalAuth, async (c) => {

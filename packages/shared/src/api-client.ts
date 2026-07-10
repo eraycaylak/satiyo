@@ -136,6 +136,15 @@ export class SatiyoClient {
   sellerListings(sellerId: string) {
     return this.request<Paginated<Listing>>(`/sellers/${sellerId}/listings`);
   }
+  followSeller(sellerId: string) {
+    return this.request<{ ok: true }>(`/sellers/${sellerId}/follow`, { method: "POST" });
+  }
+  unfollowSeller(sellerId: string) {
+    return this.request<{ ok: true }>(`/sellers/${sellerId}/follow`, { method: "DELETE" });
+  }
+  following() {
+    return this.request<PublicSeller[]>("/me/following");
+  }
   getSeller(sellerId: string) {
     return this.request<PublicSeller>(`/sellers/${sellerId}`);
   }

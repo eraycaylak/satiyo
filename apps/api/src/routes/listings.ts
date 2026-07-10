@@ -42,6 +42,19 @@ async function notifySavedSearches(
   if (stmts.length) await db.batch(stmts);
 }
 
+/** Satıcının takipçilerine yeni ilan bildirimi (best-effort). */
+async function notifyFollowers(db: D1Database, listingId: string, sellerId: string, title: string): Promise<void> {
+  const followers = await db.prepare(`SELECT follower_id FROM follows WHERE following_id = ? LIMIT 1000`).bind(sellerId).all();
+  const rows = followers.results as Record<string, unknown>[];
+  if (!rows.length) return;
+  const ts = now();
+  const stmts = rows.map((r) =>
+    db.prepare(`INSERT INTO notifications (id, user_id, type, title, body, data, created_at) VALUES (?,?, 'new_listing', ?, ?, ?, ?)`)
+      .bind(newId("ntf"), r.follower_id as string, "Takip ettiğin satıcı yeni ilan koydu", title, JSON.stringify({ listingId }), ts),
+  );
+  await db.batch(stmts);
+}
+
 export const listingRoutes = new Hono<{ Bindings: Env; Variables: Variables }>();
 
 /** Bir kategori ve tüm alt kategorilerinin id'lerini döner. */
@@ -234,13 +247,14 @@ listingRoutes.post("/", requireAuth, async (c) => {
 
   await c.env.DB.batch(statements);
 
-  // Yayınlanan ilan için kaydedilen arama bildirimleri (taslak değilse)
+  // Yayınlanan ilan için kaydedilen arama + takipçi bildirimleri (taslak değilse)
   if (input.status === "active") {
     await notifySavedSearches(c.env.DB, id, user.id, {
       title: input.title, description: input.description, categoryId: input.categoryId,
       price: input.price, city: input.city ?? null, condition: input.condition,
       attributesText: Object.values(input.attributes).join(" "),
     });
+    await notifyFollowers(c.env.DB, id, user.id, input.title);
   }
 
   const row = await c.env.DB.prepare(`SELECT * FROM listings WHERE id = ?`).bind(id).first();
