@@ -17,6 +17,8 @@ export interface Env {
   TWILIO_ACCOUNT_SID?: string;
   TWILIO_AUTH_TOKEN?: string;
   TWILIO_VERIFY_SERVICE_SID?: string;
+  // AI ilan sihirbazı — Gemini Vision (foto → başlık/kategori/fiyat). `wrangler secret put GEMINI_API_KEY`.
+  GEMINI_API_KEY?: string;
 }
 
 export interface AuthUser {

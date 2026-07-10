@@ -121,6 +121,13 @@ export class SatiyoClient {
   createListing(input: unknown) {
     return this.request<Listing>("/listings", { method: "POST", body: JSON.stringify(input) });
   }
+  // AI ilan sihirbazı: foto → başlık/kategori/fiyat/açıklama önerisi (Gemini Vision)
+  suggestListing(input: { imageUrl?: string; imageBase64?: string; mimeType?: string }) {
+    return this.request<{ title: string; categoryId: string | null; price: number; description: string; condition: "new" | "used" }>(
+      "/ai/suggest-listing",
+      { method: "POST", body: JSON.stringify(input) },
+    );
+  }
   updateListing(id: string, input: unknown) {
     return this.request<Listing>(`/listings/${id}`, { method: "PATCH", body: JSON.stringify(input) });
   }

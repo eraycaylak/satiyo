@@ -16,6 +16,7 @@ import { reviewRoutes } from "./routes/reviews.js";
 import { reportRoutes } from "./routes/reports.js";
 import { adminRoutes } from "./routes/admin.js";
 import { eventRoutes } from "./routes/events.js";
+import { aiRoutes } from "./routes/ai.js";
 
 export { ChatRoom } from "./durable/ChatRoom.js";
 
@@ -81,6 +82,7 @@ app.route("/reviews", reviewRoutes);
 app.route("/reports", reportRoutes);
 app.route("/admin", adminRoutes);
 app.route("/events", eventRoutes);
+app.route("/ai", aiRoutes);
 
 app.onError((err, c) => {
   if (err instanceof HTTPException && err.res) return err.res;
