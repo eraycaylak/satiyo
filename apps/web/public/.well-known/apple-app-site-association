@@ -1,0 +1,11 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appID": "TV4KH9C65H.com.satiyo.app",
+        "paths": ["/ilan/*", "/satici/*"]
+      }
+    ]
+  }
+}
