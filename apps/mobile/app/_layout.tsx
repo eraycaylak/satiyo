@@ -6,6 +6,7 @@ import { Providers } from "@/lib/providers";
 import { SplashIntro } from "@/components/SplashIntro";
 import { VersionGate } from "@/components/VersionGate";
 import { track } from "@/lib/analytics";
+import { useOtaUpdates } from "@/lib/ota";
 
 // Uygulama açılışı + ekran görüntüleme olaylarını birinci-parti analytics'e gönderir.
 function AnalyticsTracker() {
@@ -22,6 +23,7 @@ function AnalyticsTracker() {
 }
 
 export default function RootLayout() {
+  useOtaUpdates();
   return (
     <SafeAreaProvider>
       <Providers>

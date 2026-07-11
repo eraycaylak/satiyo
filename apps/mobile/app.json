@@ -9,6 +9,13 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "primaryColor": "#f0434c",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/d087efea-1bfc-4928-934b-647b66a41a4e",
+      "fallbackToCacheTimeout": 0
+    },
     "splash": {
       "image": "./assets/icon.png",
       "resizeMode": "contain",
@@ -29,6 +36,14 @@
         "NSCameraUsageDescription": "İlan fotoğrafı çekmek için kameranıza erişim gerekir.",
         "NSLocationWhenInUseUsageDescription": "Yakınındaki ilanları göstermek ve ilan verirken konumunu otomatik doldurmak için konumuna erişiriz.",
         "ITSAppUsesNonExemptEncryption": false
+      },
+      "privacyManifests": {
+        "NSPrivacyAccessedAPITypes": [
+          { "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategoryUserDefaults", "NSPrivacyAccessedAPITypeReasons": ["CA92.1"] },
+          { "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategoryFileTimestamp", "NSPrivacyAccessedAPITypeReasons": ["0A2A.1", "3B52.1", "C617.1"] },
+          { "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategoryDiskSpace", "NSPrivacyAccessedAPITypeReasons": ["E174.1", "85F4.1"] },
+          { "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategorySystemBootTime", "NSPrivacyAccessedAPITypeReasons": ["35F9.1"] }
+        ]
       }
     },
     "android": {
@@ -73,12 +88,6 @@
     "plugins": [
       "expo-router",
       [
-        "expo-location",
-        {
-          "locationWhenInUsePermission": "Yakınındaki ilanları göstermek ve ilan verirken konumunu otomatik doldurmak için konumuna erişiriz."
-        }
-      ],
-      [
         "expo-build-properties",
         {
           "android": {
@@ -92,7 +101,8 @@
         "expo-image-picker",
         {
           "photosPermission": "İlan fotoğrafı eklemek için galeriye erişim.",
-          "cameraPermission": "İlan fotoğrafı çekmek için kameraya erişim."
+          "cameraPermission": "İlan fotoğrafı çekmek için kameraya erişim.",
+          "microphonePermission": false
         }
       ]
     ],

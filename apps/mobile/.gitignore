@@ -1,1 +1,5 @@
 ios/build_rec/
+
+# Native projeler CNG ile build sırasında üretilir (EAS prebuild)
+/ios
+/android
