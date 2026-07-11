@@ -68,7 +68,7 @@
     },
     "android": {
       "package": "com.satiyo.app",
-      "versionCode": 5,
+      "versionCode": 6,
       "adaptiveIcon": {
         "foregroundImage": "./assets/icon.png",
         "backgroundColor": "#f0434c"
