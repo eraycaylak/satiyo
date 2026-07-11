@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { CATEGORIES } from "@satiyo/shared";
 import type { Env, Variables } from "../env.js";
 import { badRequest, fail } from "../lib/http.js";
+import { getGeminiKey } from "../lib/settings.js";
 import { requireAuth } from "../middleware/auth.js";
 
 export const aiRoutes = new Hono<{ Bindings: Env; Variables: Variables }>();
@@ -26,7 +27,8 @@ async function urlToInline(url: string): Promise<{ mimeType: string; data: strin
 
 // POST /ai/suggest-listing — foto → başlık/kategori/fiyat/açıklama önerisi (Gemini Vision)
 aiRoutes.post("/suggest-listing", requireAuth, async (c) => {
-  if (!c.env.GEMINI_API_KEY) fail(500, "ai_disabled", "AI şu an kullanılamıyor");
+  const geminiKey = await getGeminiKey(c.env, c.env.DB); // önce panel ayarı, sonra secret
+  if (!geminiKey) fail(500, "ai_disabled", "AI şu an kullanılamıyor");
   const body = (await c.req.json().catch(() => ({}))) as { imageUrl?: string; imageBase64?: string; mimeType?: string };
 
   let inline: { mimeType: string; data: string } | null = null;
@@ -72,7 +74,7 @@ aiRoutes.post("/suggest-listing", requireAuth, async (c) => {
 
   const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", "X-goog-api-key": c.env.GEMINI_API_KEY! },
+    headers: { "Content-Type": "application/json", "X-goog-api-key": geminiKey! },
     body: JSON.stringify({
       contents: [{ parts: [{ text: prompt }, { inlineData: inline! }] }],
       generationConfig: { responseMimeType: "application/json", responseSchema, temperature: 0.4 },

@@ -298,6 +298,15 @@ export class SatiyoClient {
   adminGrantCredit(id: string, amountKurus: number, reason?: string) {
     return this.request<{ ok: true; balance: number }>(`/admin/users/${id}/credit`, { method: "POST", body: JSON.stringify({ amountKurus, reason }) });
   }
+  adminAiStatus() {
+    return this.request<{
+      monthCalls: number; monthUsers: number; estimatedCostUsd: number; dailyLimitPerUser: number;
+      keySource: "panel" | "secret" | "none"; keyMasked: string | null; health: string; note: string;
+    }>("/admin/ai-status");
+  }
+  adminSetGeminiKey(key: string) {
+    return this.request<{ ok: true; keyMasked: string }>("/admin/settings/gemini-key", { method: "POST", body: JSON.stringify({ key }) });
+  }
   adminSynonyms() {
     return this.request<{ id: string; term: string; aliases: string[] }[]>("/admin/synonyms");
   }

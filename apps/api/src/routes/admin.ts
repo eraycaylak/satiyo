@@ -3,6 +3,7 @@ import type { Env, Variables } from "../env.js";
 import { badRequest, notFound } from "../lib/http.js";
 import { newId, now } from "../lib/id.js";
 import { foldTr } from "@satiyo/shared";
+import { getSetting, setSetting, getGeminiKey } from "../lib/settings.js";
 import { requireAuth } from "../middleware/auth.js";
 import { requireAdmin } from "../middleware/admin.js";
 
@@ -157,6 +158,55 @@ adminRoutes.post("/users/:id/credit", async (c) => {
   const bal = await c.env.DB.prepare(`SELECT balance_minor b FROM credit_wallets WHERE user_id=?`).bind(id).first();
   return c.json({ ok: true as const, balance: Number(bal?.b ?? 0) });
 });
+
+// --- AI durum: bu ay kullanım + tahmini maliyet + canlı anahtar sağlığı ---
+// (Google, API-key ile bakiye/limit endpoint'i SUNMUYOR — en yakın+doğru gösterge budur.)
+adminRoutes.get("/ai-status", async (c) => {
+  const month = new Date().toISOString().slice(0, 7); // YYYY-MM
+  const usage = await c.env.DB.prepare(
+    `SELECT COALESCE(SUM(count),0) n, COUNT(DISTINCT user_id) u FROM ai_usage WHERE day LIKE ?`,
+  ).bind(`${month}%`).first();
+  const calls = Number(usage?.n ?? 0);
+  const key = await getGeminiKey(c.env, c.env.DB);
+  const fromPanel = !!(await getSetting(c.env.DB, "gemini_api_key"));
+  const health = key ? await geminiHealth(key) : "no_key";
+  return c.json({
+    monthCalls: calls,
+    monthUsers: Number(usage?.u ?? 0),
+    estimatedCostUsd: Math.round(calls * 0.0006 * 1e4) / 1e4,
+    dailyLimitPerUser: 30,
+    keySource: fromPanel ? "panel" : (c.env.GEMINI_API_KEY ? "secret" : "none"),
+    keyMasked: key ? `${key.slice(0, 6)}…${key.slice(-4)}` : null,
+    health, // ok | quota_exceeded | error_XXX | unreachable | no_key
+    note: "Google Gemini API-key ile bakiye sorgusu sunmuyor; bu kendi kullanımımız + tahmini maliyet + canlı anahtar sağlığıdır.",
+  });
+});
+
+// --- Gemini anahtarını panelden değiştir (deploy/store güncellemesi GEREKMEZ). Kaydetmeden önce doğrular. ---
+adminRoutes.post("/settings/gemini-key", async (c) => {
+  const body = (await c.req.json().catch(() => ({}))) as { key?: string };
+  const k = (body.key ?? "").trim();
+  if (k.length < 20) badRequest("Geçerli bir Gemini API anahtarı gir");
+  const health = await geminiHealth(k);
+  if (health !== "ok") badRequest(`Anahtar doğrulanamadı (${health}) — kaydedilmedi`);
+  await setSetting(c.env.DB, "gemini_api_key", k);
+  return c.json({ ok: true as const, keyMasked: `${k.slice(0, 6)}…${k.slice(-4)}` });
+});
+
+async function geminiHealth(key: string): Promise<string> {
+  try {
+    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-goog-api-key": key },
+      body: JSON.stringify({ contents: [{ parts: [{ text: "ping" }] }] }),
+    });
+    if (r.ok) return "ok";
+    if (r.status === 429) return "quota_exceeded";
+    return `error_${r.status}`;
+  } catch {
+    return "unreachable";
+  }
+}
 
 // --- Kullanıcı listesi (son görülme + ilan sayısı) ---
 adminRoutes.get("/users", async (c) => {
