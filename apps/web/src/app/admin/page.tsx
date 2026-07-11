@@ -9,6 +9,7 @@ import {
   ModerationSection, initials,
 } from "./sections";
 import { SystemSettings, AppSettings } from "./admin-settings";
+import { FeaturedSection, MessagesSection, OtherPagesSection } from "./admin-extra";
 import { Dashboard, CategoriesSection, Placeholder } from "./dashboard";
 import { Icon } from "./icons";
 import "./admin.css";
@@ -127,9 +128,9 @@ export default function AdminPage() {
           {tab === "system" && <SystemSettings />}
           {tab === "appsettings" && <AppSettings />}
           {tab === "orders" && <Placeholder title="Siparişler" />}
-          {tab === "featured" && <Placeholder title="Öne Çıkanlar" />}
-          {tab === "messages" && <Placeholder title="Mesajlar" />}
-          {tab === "other" && <Placeholder title="Diğer Sayfalar" />}
+          {tab === "featured" && <FeaturedSection />}
+          {tab === "messages" && <MessagesSection />}
+          {tab === "other" && <OtherPagesSection />}
         </div>
       </div>
     </div>

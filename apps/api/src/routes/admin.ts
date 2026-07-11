@@ -336,6 +336,58 @@ adminRoutes.post("/listings/:id/moderate", async (c) => {
   });
 });
 
+// --- Öne Çıkanlar: boost'lu aktif ilanlar ---
+adminRoutes.get("/featured", async (c) => {
+  const rows = await c.env.DB.prepare(
+    `SELECT * FROM listings WHERE boosted_until > ?1 AND status='active' ORDER BY boosted_until DESC LIMIT 60`,
+  ).bind(now()).all();
+  let items = (rows.results as Record<string, unknown>[]).map(rowToListing);
+  items = await hydrateListings(c.env.DB, items, { withSeller: true });
+  return c.json({ items });
+});
+
+// --- Mesajlar: konuşma listesi (trust & safety / yasadışı içerik denetimi) ---
+adminRoutes.get("/conversations", async (c) => {
+  const q = (c.req.query("q") ?? "").trim();
+  const risky = c.req.query("risky") === "1";
+  const where = q ? "WHERE (b.name LIKE ?1 OR s.name LIKE ?1 OR l.title LIKE ?1 OR b.phone LIKE ?1 OR s.phone LIKE ?1)" : "";
+  const rows = await c.env.DB.prepare(
+    `SELECT cv.id, cv.listing_id, cv.buyer_id, cv.seller_id, cv.last_message_at, cv.created_at,
+            l.title AS listing_title, b.name AS buyer_name, b.phone AS buyer_phone,
+            s.name AS seller_name, s.phone AS seller_phone,
+            (SELECT COUNT(*) FROM messages m WHERE m.conversation_id=cv.id) AS msg_count,
+            (SELECT COUNT(*) FROM messages m WHERE m.conversation_id=cv.id AND m.flagged=1) AS flagged_count
+     FROM conversations cv
+     JOIN listings l ON l.id=cv.listing_id
+     JOIN users b ON b.id=cv.buyer_id
+     JOIN users s ON s.id=cv.seller_id
+     ${where} ORDER BY cv.last_message_at DESC LIMIT 80`,
+  ).bind(...(q ? [`%${q}%`] : [])).all();
+  let items = (rows.results as Record<string, unknown>[]).map((r) => ({
+    id: r.id as string, listingId: r.listing_id as string, listingTitle: (r.listing_title as string) ?? "—",
+    buyerId: r.buyer_id as string, buyerName: (r.buyer_name as string) ?? "—", buyerPhone: (r.buyer_phone as string) ?? "",
+    sellerId: r.seller_id as string, sellerName: (r.seller_name as string) ?? "—", sellerPhone: (r.seller_phone as string) ?? "",
+    lastMessageAt: Number(r.last_message_at), createdAt: Number(r.created_at),
+    messageCount: Number(r.msg_count ?? 0), flaggedCount: Number(r.flagged_count ?? 0),
+  }));
+  if (risky) items = items.filter((x) => x.flaggedCount > 0);
+  return c.json({ items });
+});
+
+adminRoutes.get("/conversations/:id/messages", async (c) => {
+  const rows = await c.env.DB.prepare(
+    `SELECT m.id, m.sender_id, m.type, m.body, m.offer_amount, m.offer_status, m.flagged, m.created_at, u.name AS sender_name
+     FROM messages m JOIN users u ON u.id=m.sender_id WHERE m.conversation_id=? ORDER BY m.created_at ASC`,
+  ).bind(c.req.param("id")).all();
+  return c.json({
+    messages: (rows.results as Record<string, unknown>[]).map((r) => ({
+      id: r.id as string, senderId: r.sender_id as string, senderName: (r.sender_name as string) ?? "—",
+      type: r.type as string, body: (r.body as string) ?? null, offerAmount: (r.offer_amount as number) ?? null,
+      offerStatus: (r.offer_status as string) ?? null, flagged: !!r.flagged, createdAt: Number(r.created_at),
+    })),
+  });
+});
+
 // --- C2: Zorunlu güncelleme config (oku/yaz) ---
 const CONFIG_KEYS = ["min_version_ios", "min_version_android", "latest_version_ios", "latest_version_android", "store_url_ios", "store_url_android", "update_message"];
 adminRoutes.get("/config", async (c) => {

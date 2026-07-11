@@ -360,6 +360,25 @@ export class SatiyoClient {
   adminModerateListing(id: string) {
     return this.request<{ ok: true; riskScore: number | null; riskFlag: boolean; riskCategory: string | null }>(`/admin/listings/${id}/moderate`, { method: "POST" });
   }
+  // Öne Çıkanlar (boost'lu ilanlar)
+  adminFeatured() {
+    return this.request<{ items: Listing[] }>("/admin/featured");
+  }
+  // Mesajlar (moderasyon / trust & safety)
+  adminConversations(q?: string, risky?: boolean) {
+    return this.request<{ items: Array<{
+      id: string; listingId: string; listingTitle: string;
+      buyerId: string; buyerName: string; buyerPhone: string;
+      sellerId: string; sellerName: string; sellerPhone: string;
+      lastMessageAt: number; createdAt: number; messageCount: number; flaggedCount: number;
+    }> }>("/admin/conversations", { query: { ...(q ? { q } : {}), ...(risky ? { risky: "1" } : {}) } });
+  }
+  adminConversationMessages(id: string) {
+    return this.request<{ messages: Array<{
+      id: string; senderId: string; senderName: string; type: string;
+      body: string | null; offerAmount: number | null; offerStatus: string | null; flagged: boolean; createdAt: number;
+    }> }>(`/admin/conversations/${id}/messages`);
+  }
   // C2 — zorunlu güncelleme config yönetimi
   adminConfig() {
     return this.request<Record<string, string>>("/admin/config");

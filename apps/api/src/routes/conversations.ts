@@ -104,8 +104,8 @@ conversationRoutes.post("/", requireAuth, async (c) => {
     flag = inspectMessage(body);
     const msgId = newId("msg");
     await c.env.DB.batch([
-      c.env.DB.prepare(`INSERT INTO messages (id, conversation_id, sender_id, type, body, created_at) VALUES (?,?,?, 'text', ?, ?)`)
-        .bind(msgId, conv!.id, user.id, body, ts),
+      c.env.DB.prepare(`INSERT INTO messages (id, conversation_id, sender_id, type, body, flagged, created_at) VALUES (?,?,?, 'text', ?, ?, ?)`)
+        .bind(msgId, conv!.id, user.id, body, flag.flagged ? 1 : 0, ts),
       c.env.DB.prepare(`UPDATE conversations SET last_message_at = ? WHERE id = ?`).bind(ts, conv!.id),
     ]);
     const msg = await c.env.DB.prepare(`SELECT * FROM messages WHERE id = ?`).bind(msgId).first();
@@ -156,10 +156,10 @@ conversationRoutes.post("/:id/messages", requireAuth, async (c) => {
   const msgId = newId("msg");
   await c.env.DB.batch([
     c.env.DB.prepare(
-      `INSERT INTO messages (id, conversation_id, sender_id, type, body, offer_amount, offer_status, created_at)
-       VALUES (?,?,?,?,?,?,?,?)`,
+      `INSERT INTO messages (id, conversation_id, sender_id, type, body, offer_amount, offer_status, flagged, created_at)
+       VALUES (?,?,?,?,?,?,?,?,?)`,
     ).bind(msgId, id, user.id, input.type, input.body ?? null, input.offerAmount ?? null,
-      input.type === "offer" ? "pending" : null, ts),
+      input.type === "offer" ? "pending" : null, flag.flagged ? 1 : 0, ts),
     c.env.DB.prepare(`UPDATE conversations SET last_message_at = ? WHERE id = ?`).bind(ts, id),
   ]);
   const msg = await c.env.DB.prepare(`SELECT * FROM messages WHERE id = ?`).bind(msgId).first();
