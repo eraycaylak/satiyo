@@ -1,12 +1,13 @@
 "use client";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
-import { CATEGORIES, getChildren, type SearchFilters, type SortOption } from "@satiyo/shared";
+import { CATEGORIES, type SearchFilters, type SortOption } from "@satiyo/shared";
 import { useState } from "react";
 import dynamic from "next/dynamic";
 import { api } from "@/lib/client";
 import { useAuth } from "@/lib/auth";
 import { ListingCard, ListingCardSkeleton, ListingGrid } from "./ListingCard";
+import { CategoryRail } from "./CategoryRail";
 
 const MapView = dynamic(() => import("./MapView"), { ssr: false, loading: () => <div className="empty">Harita yükleniyor…</div> });
 
@@ -69,34 +70,27 @@ export function Explore() {
   }
   const hasCriteria = !!(q || categoryId || filters.minPrice || filters.maxPrice || filters.condition);
 
-  const rootCats = getChildren(null);
   const activeCat = categoryId ? CATEGORIES.find((c) => c.id === categoryId) : null;
 
   return (
     <div className="stack" style={{ gap: "var(--space-4)" }}>
       {/* Senin için (kişiselleştirilmiş öneriler) */}
       {browsing && reco && reco.items.length > 0 && (
-        <div className="stack" style={{ gap: "var(--space-2)" }}>
-          <h2 style={{ fontSize: 18, margin: 0 }}>✨ Senin için</h2>
+        <div className="stack" style={{ gap: "var(--space-3)" }}>
+          <div className="sec-head">
+            <span className="sec-eyebrow">✨ Sana özel</span>
+            <h2 style={{ fontSize: 19, margin: 0, letterSpacing: "-.02em" }}>Senin için seçtiklerimiz</h2>
+          </div>
           <div className="row" style={{ gap: "var(--space-4)", overflowX: "auto", paddingBottom: 4 }}>
             {reco.items.map((l) => (
-              <div key={l.id} style={{ width: 180, flexShrink: 0 }}><ListingCard listing={l} /></div>
+              <div key={l.id} style={{ width: 190, flexShrink: 0 }}><ListingCard listing={l} /></div>
             ))}
           </div>
         </div>
       )}
 
-      {/* Kategori çubuğu */}
-      <div className="row" style={{ gap: 8, overflowX: "auto", paddingBottom: 4 }}>
-        <button className={`badge ${!categoryId ? "badge-brand" : ""}`} style={chip} onClick={() => setParam("categoryId")}>
-          Tümü
-        </button>
-        {rootCats.map((c) => (
-          <button key={c.id} className={`badge ${categoryId === c.id ? "badge-brand" : ""}`} style={chip} onClick={() => setParam("categoryId", c.id)}>
-            {c.icon} {c.name}
-          </button>
-        ))}
-      </div>
+      {/* Kategori rayı — renkli ikon dili */}
+      <CategoryRail active={categoryId} onSelect={(id) => setParam("categoryId", id)} />
 
       {/* Başlık + filtre satırı */}
       <div className="spread" style={{ flexWrap: "wrap", gap: 12 }}>
@@ -150,5 +144,3 @@ export function Explore() {
     </div>
   );
 }
-
-const chip: React.CSSProperties = { whiteSpace: "nowrap", cursor: "pointer", border: "1px solid var(--border)", padding: "7px 14px", fontSize: 14 };

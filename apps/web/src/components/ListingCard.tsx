@@ -23,7 +23,7 @@ export function ListingCard({ listing }: { listing: Listing }) {
   }
 
   return (
-    <Link href={`/ilan/${listing.id}`} className="card" style={{ overflow: "hidden", display: "flex", flexDirection: "column" }}>
+    <Link href={`/ilan/${listing.id}`} className="card listing-card" style={{ overflow: "hidden", display: "flex", flexDirection: "column" }}>
       <div style={{ position: "relative", aspectRatio: "4 / 3", background: "var(--surface-2)" }}>
         {cover ? (
           // eslint-disable-next-line @next/next/no-img-element
