@@ -7,7 +7,7 @@ import type { Conversation, Message } from "@satiyo/shared";
 import { api, tokenStore } from "@/lib/client";
 import { useAuth } from "@/lib/auth";
 import { radius, space, useTheme } from "@/lib/theme";
-import { formatPrice } from "@/lib/format";
+import { formatPrice, presenceText } from "@/lib/format";
 import { Loading } from "@/components/ui";
 
 const QUICK = ["Hâlâ satılık mı?", "Son fiyat?", "Ne zaman bakabilirim?", "Takas olur mu?"];
@@ -107,8 +107,17 @@ export default function ChatScreen() {
           {reviewedId ? <Pressable onPress={blockOther} style={{ flexDirection: "row", alignItems: "center", gap: 4 }}><Ionicons name="remove-circle-outline" size={15} color={t.danger} /><Text style={{ color: t.danger, fontWeight: "600", fontSize: 13 }}>Engelle</Text></Pressable> : null}
         </View>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-          <Ionicons name={connected ? "ellipse" : "ellipse-outline"} size={9} color={connected ? t.success : t.muted} />
-          <Text style={{ color: connected ? t.brand : t.muted, fontSize: 12 }}>{connected ? "Çevrimiçi" : "Bağlanıyor"}</Text>
+          {(() => {
+            const p = presenceText(conv?.otherUser?.lastSeen);
+            const label = p.label || (connected ? "" : "Bağlanıyor");
+            if (!label) return null;
+            return (
+              <>
+                <Ionicons name={p.online ? "ellipse" : "ellipse-outline"} size={9} color={p.online ? t.success : t.muted} />
+                <Text style={{ color: p.online ? t.brand : t.muted, fontSize: 12 }}>{label}</Text>
+              </>
+            );
+          })()}
         </View>
       </View>
       <FlatList

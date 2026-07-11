@@ -48,7 +48,7 @@ conversationRoutes.get("/", requireAuth, async (c) => {
     convs.map(async (cv) => {
       const otherId = cv.other_id as string;
       const [other, last, unread] = await Promise.all([
-        c.env.DB.prepare(`SELECT id, name, avatar_url, city, district, created_at, trust_score, response_time_avg, is_store, store_name, phone_verified, identity_verified FROM users WHERE id = ?`).bind(otherId).first(),
+        c.env.DB.prepare(`SELECT id, name, avatar_url, city, district, created_at, trust_score, response_time_avg, is_store, store_name, phone_verified, identity_verified, last_seen FROM users WHERE id = ?`).bind(otherId).first(),
         c.env.DB.prepare(`SELECT * FROM messages WHERE conversation_id = ? ORDER BY created_at DESC LIMIT 1`).bind(cv.id).first(),
         c.env.DB.prepare(`SELECT COUNT(*) AS n FROM messages WHERE conversation_id = ? AND sender_id != ? AND read_at IS NULL`).bind(cv.id, user.id).first(),
       ]);
@@ -61,6 +61,7 @@ conversationRoutes.get("/", requireAuth, async (c) => {
           district: other.district ?? null, createdAt: other.created_at, trustScore: other.trust_score ?? 0,
           responseTimeAvg: other.response_time_avg ?? null, isStore: !!other.is_store, storeName: other.store_name ?? null,
           phoneVerified: !!other.phone_verified, identityVerified: !!other.identity_verified,
+          lastSeen: other.last_seen != null ? Number(other.last_seen) : null,
         } : undefined,
         lastMessage: last ? rowToMessage(last as Record<string, unknown>) : null,
         unreadCount: (unread?.n as number) ?? 0,
@@ -86,7 +87,9 @@ conversationRoutes.post("/", requireAuth, async (c) => {
     .bind(listingId, user.id).first();
 
   const ts = now();
+  let created = false;
   if (!conv) {
+    created = true;
     const id = newId("cnv");
     await c.env.DB.prepare(
       `INSERT INTO conversations (id, listing_id, buyer_id, seller_id, last_message_at, created_at) VALUES (?,?,?,?,?,?)`,
@@ -94,22 +97,27 @@ conversationRoutes.post("/", requireAuth, async (c) => {
     conv = await c.env.DB.prepare(`SELECT * FROM conversations WHERE id = ?`).bind(id).first();
   }
 
-  const flag = inspectMessage(body);
-  const msgId = newId("msg");
-  await c.env.DB.batch([
-    c.env.DB.prepare(`INSERT INTO messages (id, conversation_id, sender_id, type, body, created_at) VALUES (?,?,?, 'text', ?, ?)`)
-      .bind(msgId, conv!.id, user.id, body, ts),
-    c.env.DB.prepare(`UPDATE conversations SET last_message_at = ? WHERE id = ?`).bind(ts, conv!.id),
-  ]);
-  const msg = await c.env.DB.prepare(`SELECT * FROM messages WHERE id = ?`).bind(msgId).first();
-  await broadcast(c.env, conv!.id as string, { kind: "message", message: rowToMessage(msg as Record<string, unknown>) });
-  await notify(c.env.DB, listing!.seller_id as string, "message", `Yeni mesaj: ${listing!.title as string}`, body.slice(0, 80), { conversationId: conv!.id as string, listingId });
+  // A2 — açılış mesajı YALNIZ yeni konuşmada + body verildiğinde yazılır.
+  // Mevcut konuşmaya tekrar "Mesaj At" basınca yeni mesaj gönderilmez (sadece konuşma döner).
+  let flag: { flagged: boolean; reasons?: string[] } = { flagged: false };
+  if (created && body) {
+    flag = inspectMessage(body);
+    const msgId = newId("msg");
+    await c.env.DB.batch([
+      c.env.DB.prepare(`INSERT INTO messages (id, conversation_id, sender_id, type, body, created_at) VALUES (?,?,?, 'text', ?, ?)`)
+        .bind(msgId, conv!.id, user.id, body, ts),
+      c.env.DB.prepare(`UPDATE conversations SET last_message_at = ? WHERE id = ?`).bind(ts, conv!.id),
+    ]);
+    const msg = await c.env.DB.prepare(`SELECT * FROM messages WHERE id = ?`).bind(msgId).first();
+    await broadcast(c.env, conv!.id as string, { kind: "message", message: rowToMessage(msg as Record<string, unknown>) });
+    await notify(c.env.DB, listing!.seller_id as string, "message", `Yeni mesaj: ${listing!.title as string}`, body.slice(0, 80), { conversationId: conv!.id as string, listingId });
+  }
 
   return c.json({
     id: conv!.id, listingId: conv!.listing_id, buyerId: conv!.buyer_id, sellerId: conv!.seller_id,
-    lastMessageAt: ts, createdAt: conv!.created_at,
+    lastMessageAt: Number(conv!.last_message_at) || ts, createdAt: conv!.created_at, created,
     ...(flag.flagged ? { safetyWarning: flag.reasons } : {}),
-  }, 201);
+  }, created ? 201 : 200);
 });
 
 // ============ GET /conversations/:id/messages ============

@@ -28,6 +28,8 @@ export interface User {
   isStore: boolean;
   storeName: string | null;
   isAdmin: boolean;
+  storeStatus?: "none" | "pending" | "approved" | "rejected";
+  storeVerifiedAt?: number | null;
 }
 
 /** İstemciye dönen güvenli kullanıcı (telefon/email maskeli olabilir). */
@@ -48,6 +50,7 @@ export interface PublicSeller {
   ratingCount?: number;
   followerCount?: number;
   isFollowing?: boolean;
+  lastSeen?: number | null;
 }
 
 export interface ListingImage {
@@ -80,6 +83,10 @@ export interface Listing {
   attributes: Record<string, string>;
   seller?: PublicSeller;
   favorited?: boolean;
+  quantity?: number;
+  soldTo?: string | null;
+  soldAt?: number | null;
+  soldChannel?: "satiyo" | "disarida" | null;
 }
 
 export interface Conversation {
@@ -136,4 +143,34 @@ export interface ApiError {
   error: string;
   message: string;
   details?: unknown;
+}
+
+/** İlan durumu → Türkçe etiket (mobil/web/admin ortak — tek kaynak). */
+export const LISTING_STATUS_LABELS: Record<ListingStatus, string> = {
+  active: "Yayında",
+  reserved: "Rezerve",
+  sold: "Satıldı",
+  removed: "Kaldırıldı",
+  draft: "Taslak",
+};
+
+/** Mağaza başvurusu (C4 dükkan doğrulama). */
+export interface StoreApplication {
+  id: string;
+  storeName: string;
+  legalType: "individual" | "company";
+  taxNo: string | null;
+  docIds: string[];
+  status: "pending" | "approved" | "rejected";
+  reviewNote: string | null;
+  createdAt: number;
+  reviewedAt: number | null;
+}
+
+/** Zorunlu güncelleme / uygulama yapılandırması (C2). */
+export interface AppConfig {
+  minVersion: { ios: string; android: string };
+  latestVersion: { ios: string; android: string };
+  storeUrl: { ios: string; android: string };
+  message: string | null;
 }

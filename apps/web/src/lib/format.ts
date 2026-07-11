@@ -23,6 +23,13 @@ export function locationText(city?: string | null, district?: string | null): st
   return [district, city].filter(Boolean).join(", ") || "Konum belirtilmemiş";
 }
 
+/** Karşı tarafın presence metni — <2dk aktifse "çevrimiçi", değilse son görülme. */
+export function presenceText(lastSeen?: number | null): string {
+  if (!lastSeen) return "";
+  if (Date.now() - lastSeen < 2 * 60_000) return "● çevrimiçi";
+  return `son görülme ${timeAgo(lastSeen)}`;
+}
+
 export const conditionLabel: Record<string, string> = { new: "Sıfır", used: "İkinci el" };
 export const priceTypeLabel: Record<PriceType, string> = {
   fixed: "Sabit fiyat", negotiable: "Pazarlık olur", trade: "Takas", free: "Ücretsiz",

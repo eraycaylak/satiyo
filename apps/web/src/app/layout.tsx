@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Suspense } from "react";
 import "./globals.css";
 import { Providers } from "@/lib/providers";
-import { Header } from "@/components/Header";
+import { Chrome } from "@/components/Chrome";
 import { Analytics } from "@/components/Analytics";
 import { JsonLd } from "@/components/JsonLd";
 
@@ -104,22 +104,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <Analytics />
         </Suspense>
         <Providers>
-          <Suspense fallback={<div style={{ height: "var(--header-h)" }} />}>
-            <Header />
-          </Suspense>
-          <main className="container" style={{ paddingTop: "var(--space-5)", paddingBottom: "var(--space-8)", minHeight: "70vh" }}>
-            {children}
-          </main>
-          <footer style={{ borderTop: "1px solid var(--border)", padding: "var(--space-5) 0", marginTop: "var(--space-8)" }}>
-            <div className="container spread muted" style={{ fontSize: 13, flexWrap: "wrap", gap: 12 }}>
-              <span>© Satıyo — Reklamsız ikinci-el pazaryeri</span>
-              <nav className="footer-links">
-                <a href="/gizlilik">Gizlilik</a>
-                <a href="/kosullar">Kullanım Koşulları</a>
-                <a href="/kvkk">KVKK</a>
-              </nav>
-            </div>
-          </footer>
+          <Chrome>{children}</Chrome>
         </Providers>
       </body>
     </html>

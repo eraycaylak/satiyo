@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { Providers } from "@/lib/providers";
 import { SplashIntro } from "@/components/SplashIntro";
+import { VersionGate } from "@/components/VersionGate";
 import { track } from "@/lib/analytics";
 
 // Uygulama açılışı + ekran görüntüleme olaylarını birinci-parti analytics'e gönderir.
@@ -27,6 +28,7 @@ export default function RootLayout() {
         <AnalyticsTracker />
         <SplashIntro />
         <StatusBar style="auto" />
+        <VersionGate>
         <Stack
           screenOptions={{
             headerTitleStyle: { fontWeight: "800" },
@@ -41,9 +43,11 @@ export default function RootLayout() {
           <Stack.Screen name="sohbet/[id]" options={{ title: "Sohbet" }} />
           <Stack.Screen name="bildirimler" options={{ title: "Bildirimler" }} />
           <Stack.Screen name="ilanlarim" options={{ title: "İlanlarım" }} />
+          <Stack.Screen name="magaza-basvuru" options={{ title: "Mağaza Başvurusu" }} />
           <Stack.Screen name="kayitli-aramalar" options={{ title: "Kayıtlı Aramalarım" }} />
           <Stack.Screen name="engellenenler" options={{ title: "Engellenen Kullanıcılar" }} />
         </Stack>
+        </VersionGate>
       </Providers>
     </SafeAreaProvider>
   );

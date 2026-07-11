@@ -1,5 +1,6 @@
 /** Tipli, platform-bağımsız API istemcisi (web + mobil). */
 import type {
+  AppConfig,
   AuthSession,
   Conversation,
   Listing,
@@ -7,6 +8,7 @@ import type {
   Paginated,
   PublicSeller,
   Review,
+  StoreApplication,
   User,
 } from "./types";
 import type { SearchFilters } from "./search";
@@ -134,8 +136,16 @@ export class SatiyoClient {
   deleteListing(id: string) {
     return this.request<{ ok: true }>(`/listings/${id}`, { method: "DELETE" });
   }
-  myListings() {
-    return this.request<Paginated<Listing>>("/me/listings");
+  /** İlanı satıldı işaretle (A3): kime (buyerId, opsiyonel) + nereden (channel). */
+  markSold(id: string, input: { buyerId?: string; channel?: "satiyo" | "disarida" } = {}) {
+    return this.request<Listing>(`/listings/${id}/sold`, { method: "POST", body: JSON.stringify(input) });
+  }
+  /** Bu ilanda konuşan alıcı adayları (satıcı; "kime sattım" seçimi için). */
+  listingBuyers(id: string) {
+    return this.request<PublicSeller[]>(`/listings/${id}/buyers`);
+  }
+  myListings(status?: string) {
+    return this.request<Paginated<Listing>>("/me/listings", status ? { query: { status } } : undefined);
   }
   recommendations() {
     return this.request<{ items: Listing[]; basedOn: string[] }>("/me/recommendations");
@@ -194,10 +204,11 @@ export class SatiyoClient {
   conversations() {
     return this.request<Conversation[]>("/conversations");
   }
-  startConversation(listingId: string, body: string) {
-    return this.request<Conversation>("/conversations", {
+  /** Konuşmayı bul-veya-oluştur. body verilirse YALNIZ yeni konuşmada açılış mesajı yazılır (A2). */
+  startConversation(listingId: string, body?: string) {
+    return this.request<Conversation & { created: boolean }>("/conversations", {
       method: "POST",
-      body: JSON.stringify({ listingId, body }),
+      body: JSON.stringify(body ? { listingId, body } : { listingId }),
     });
   }
   messages(conversationId: string) {
@@ -257,9 +268,34 @@ export class SatiyoClient {
     return this.request<{ ok: true }>("/me/notifications/read", { method: "POST" });
   }
 
+  // --- App config (zorunlu güncelleme; public) ---
+  config() {
+    return this.request<AppConfig>("/config");
+  }
+
+  // --- Store verification (C4) ---
+  applyStore(input: {
+    storeName: string; legalType: "individual" | "company";
+    tcNo?: string; taxNo?: string; docImageIds: string[];
+  }) {
+    return this.request<{ id: string; status: "pending" }>("/me/store/apply", {
+      method: "POST", body: JSON.stringify(input),
+    });
+  }
+  storeApplication() {
+    return this.request<StoreApplication | null>("/me/store/application");
+  }
+
   // --- Admin ---
   adminStats() {
     return this.request<AdminStats>("/admin/stats");
+  }
+  adminOverview() {
+    return this.request<{
+      listingsDaily: { day: string; count: number }[];
+      categoryBreakdown: { categoryId: string; name: string; icon: string; count: number }[];
+      recentActivity: { type: string; title: string; subtitle: string; at: number }[];
+    }>("/admin/overview");
   }
   adminReports(status = "open") {
     return this.request<AdminReport[]>("/admin/reports", { query: { status } });
@@ -310,6 +346,29 @@ export class SatiyoClient {
   adminSetGeminiKey(key: string) {
     return this.request<{ ok: true; keyMasked: string }>("/admin/settings/gemini-key", { method: "POST", body: JSON.stringify({ key }) });
   }
+  // C5 — admin ilan düzenleme (sahiplik atlanır)
+  adminUpdateListing(id: string, input: unknown) {
+    return this.request<Listing>(`/admin/listings/${id}`, { method: "PATCH", body: JSON.stringify(input) });
+  }
+  // C2 — zorunlu güncelleme config yönetimi
+  adminConfig() {
+    return this.request<Record<string, string>>("/admin/config");
+  }
+  adminSetConfig(key: string, value: string) {
+    return this.request<{ ok: true }>("/admin/config", { method: "POST", body: JSON.stringify({ key, value }) });
+  }
+  // C4 — mağaza başvuru onay kuyruğu
+  adminStoreApplications(status = "pending") {
+    return this.request<Array<StoreApplication & {
+      userId: string; userName: string; userPhone: string; docUrls: string[]; tcVerified: boolean; taxVerified: boolean;
+    }>>("/admin/store-applications", { query: { status } });
+  }
+  adminApproveStore(id: string) {
+    return this.request<{ ok: true }>(`/admin/store-applications/${id}/approve`, { method: "POST" });
+  }
+  adminRejectStore(id: string, note?: string) {
+    return this.request<{ ok: true }>(`/admin/store-applications/${id}/reject`, { method: "POST", body: JSON.stringify({ note }) });
+  }
   adminSynonyms() {
     return this.request<{ id: string; term: string; aliases: string[] }[]>("/admin/synonyms");
   }
@@ -344,6 +403,9 @@ export interface AdminStats {
     topEvents: { name: string; c24: number; c7: number }[];
   };
   revenue: { totalKurus: number; payments: number };
+  engagementExtra?: { follows: number };
+  wallet?: { grantedKurus: number; spentKurus: number; outstandingKurus: number; wallets: number };
+  ai?: { suggestionsTotal: number; suggestionsToday: number };
 }
 
 export interface AdminUser {

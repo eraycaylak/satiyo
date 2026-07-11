@@ -1,11 +1,12 @@
 import { Hono } from "hono";
-import { savedSearchSchema, updateProfileSchema, STORE_MEMBERSHIP } from "@satiyo/shared";
+import { buildFtsQuery, isValidStoreIdentity, savedSearchSchema, storeApplySchema, updateProfileSchema, STORE_MEMBERSHIP } from "@satiyo/shared";
 import type { Env, Variables } from "../env.js";
 import { badRequest, fail } from "../lib/http.js";
 import { hydrateListings, rowToListing, rowToSeller, rowToUser } from "../lib/db.js";
 import { newId, now } from "../lib/id.js";
 import { getPaymentProvider } from "../lib/payments.js";
 import { getBalance } from "../lib/credit.js";
+import { sha256 } from "../lib/crypto.js";
 import { requireAuth } from "../middleware/auth.js";
 
 export const meRoutes = new Hono<{ Bindings: Env; Variables: Variables }>();
@@ -136,9 +137,11 @@ meRoutes.get("/blocks", async (c) => {
 
 meRoutes.get("/listings", async (c) => {
   const user = c.get("user");
-  const rows = await c.env.DB.prepare(
-    `SELECT * FROM listings WHERE seller_id = ? AND status != 'removed' ORDER BY created_at DESC`,
-  ).bind(user.id).all();
+  const status = (c.req.query("status") ?? "").trim();
+  // status verilirse o duruma filtrele (kaldırılanlar dahil); yoksa removed hariç tümü.
+  const rows = status
+    ? await c.env.DB.prepare(`SELECT * FROM listings WHERE seller_id = ? AND status = ? ORDER BY created_at DESC`).bind(user.id, status).all()
+    : await c.env.DB.prepare(`SELECT * FROM listings WHERE seller_id = ? AND status != 'removed' ORDER BY created_at DESC`).bind(user.id).all();
   let listings = (rows.results as Record<string, unknown>[]).map(rowToListing);
   listings = await hydrateListings(c.env.DB, listings);
   return c.json({ items: listings, page: 1, pageSize: listings.length, total: listings.length, hasMore: false });
@@ -172,7 +175,38 @@ meRoutes.get("/recommendations", async (c) => {
   }
   let listings = (rows.results as Record<string, unknown>[]).map(rowToListing);
   listings = await hydrateListings(c.env.DB, listings, { withSeller: true, favoriteUserId: user.id });
-  return c.json({ items: listings, basedOn: catIds });
+
+  // B3 — son aramalardan kişiselleştirme (favori sinyaline ek). events'te name='search', props.q.
+  let basedOn: string[] = [...catIds];
+  const searchRows = await c.env.DB.prepare(
+    `SELECT props FROM events WHERE user_id=? AND name='search' ORDER BY created_at DESC LIMIT 10`,
+  ).bind(user.id).all();
+  const terms: string[] = [];
+  for (const r of searchRows.results as Record<string, unknown>[]) {
+    try {
+      const q = (JSON.parse(String(r.props ?? "{}")) as { q?: unknown }).q;
+      if (typeof q === "string" && q.trim() && !terms.includes(q.trim())) terms.push(q.trim());
+    } catch { /* bozuk props'u yoksay */ }
+    if (terms.length >= 3) break;
+  }
+  if (terms.length) {
+    const fts = buildFtsQuery(terms.join(" "));
+    if (fts) {
+      const m = await c.env.DB.prepare(
+        `SELECT l.* FROM listings l JOIN listings_fts ft ON ft.listing_id = l.id
+         WHERE listings_fts MATCH ?1 AND l.status='active' AND l.seller_id != ?2
+         AND l.seller_id NOT IN (SELECT blocked_id FROM blocks WHERE blocker_id=?2 UNION SELECT blocker_id FROM blocks WHERE blocked_id=?2)
+         LIMIT 8`,
+      ).bind(fts, user.id).all();
+      const seen = new Set(listings.map((l) => l.id));
+      let extra = (m.results as Record<string, unknown>[]).map(rowToListing).filter((l) => !seen.has(l.id));
+      extra = await hydrateListings(c.env.DB, extra, { withSeller: true, favoriteUserId: user.id });
+      // arama-eşleşmeleri öne, sonra favori-kategori; toplam 12
+      listings = [...extra, ...listings].slice(0, 12);
+      basedOn = [...terms, ...catIds];
+    }
+  }
+  return c.json({ items: listings, basedOn });
 });
 
 // --- Mağaza üyeliği ---
@@ -195,6 +229,41 @@ meRoutes.post("/store/activate", async (c) => {
   await c.env.DB.prepare(`UPDATE users SET is_store = 1, store_name = ? WHERE id = ?`).bind(storeName!.trim(), user.id).run();
   const row = await c.env.DB.prepare(`SELECT * FROM users WHERE id = ?`).bind(user.id).first();
   return c.json(rowToUser(row as Record<string, unknown>));
+});
+
+// --- C4: Dükkan doğrulama başvurusu (belge + TC/vergi, manuel admin onayı; ücretsiz) ---
+meRoutes.post("/store/apply", async (c) => {
+  const parsed = storeApplySchema.safeParse(await c.req.json().catch(() => ({})));
+  if (!parsed.success) badRequest("Başvuru geçersiz", parsed.error.flatten());
+  const input = parsed.data!;
+  const user = c.get("user");
+  if (!isValidStoreIdentity({ legalType: input.legalType, tcNo: input.tcNo, taxNo: input.taxNo })) {
+    badRequest(input.legalType === "company" ? "Vergi numarası geçersiz" : "TC kimlik numarası geçersiz");
+  }
+  const tcHash = input.tcNo ? await sha256(input.tcNo) : null; // düz TC ASLA saklanmaz
+  const id = newId("sap");
+  const ts = now();
+  await c.env.DB.batch([
+    c.env.DB.prepare(
+      `INSERT INTO store_applications (id, user_id, store_name, legal_type, tc_hash, tax_no, doc_ids, status, created_at)
+       VALUES (?,?,?,?,?,?,?, 'pending', ?)`,
+    ).bind(id, user.id, input.storeName, input.legalType, tcHash, input.taxNo ?? null, JSON.stringify(input.docImageIds), ts),
+    c.env.DB.prepare(`UPDATE users SET store_status = 'pending' WHERE id = ?`).bind(user.id),
+  ]);
+  return c.json({ id, status: "pending" as const });
+});
+
+meRoutes.get("/store/application", async (c) => {
+  const user = c.get("user");
+  const row = await c.env.DB.prepare(
+    `SELECT * FROM store_applications WHERE user_id = ? ORDER BY created_at DESC LIMIT 1`,
+  ).bind(user.id).first();
+  if (!row) return c.json(null);
+  return c.json({
+    id: row.id, storeName: row.store_name, legalType: row.legal_type, taxNo: (row.tax_no as string) ?? null,
+    docIds: JSON.parse(String(row.doc_ids ?? "[]")), status: row.status, reviewNote: (row.review_note as string) ?? null,
+    createdAt: row.created_at, reviewedAt: (row.reviewed_at as number) ?? null,
+  });
 });
 
 // --- Kaydedilen aramalar ---

@@ -2,7 +2,7 @@
   "expo": {
     "name": "Satıyo",
     "slug": "satiyo",
-    "version": "1.0.3",
+    "version": "1.1.0",
     "scheme": "satiyo",
     "icon": "./assets/icon.png",
     "orientation": "portrait",
@@ -20,7 +20,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.satiyo.app",
-      "buildNumber": "13",
+      "buildNumber": "14",
       "associatedDomains": ["applinks:satiyo.app"],
       "infoPlist": {
         "NSPhotoLibraryUsageDescription": "İlan fotoğrafı seçmek için galerinize erişim gerekir.",
@@ -30,7 +30,7 @@
     },
     "android": {
       "package": "com.satiyo.app",
-      "versionCode": 4,
+      "versionCode": 5,
       "adaptiveIcon": {
         "foregroundImage": "./assets/icon.png",
         "backgroundColor": "#f0434c"

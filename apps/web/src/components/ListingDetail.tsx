@@ -72,11 +72,21 @@ export function ListingDetail({ id }: { id: string }) {
     if (!user) return router.push("/giris");
     setBusy(true);
     try {
-      const conv = await api.startConversation(id, text || "Merhaba, ilanınız hâlâ satılık mı?");
-      if (composer === "offer" && amount) {
-        await api.sendMessage(conv.id, { type: "offer", offerAmount: Math.round(Number(amount) * 100) });
+      // A2 — önce mevcut konuşmayı ara; varsa tekrar şablon atma
+      const convs = await api.conversations().catch(() => []);
+      const existing = convs.find((c) => c.listingId === id && c.buyerId === user.id);
+      let convId: string;
+      if (existing) {
+        convId = existing.id;
+        if (composer === "offer" && amount) await api.sendMessage(convId, { type: "offer", offerAmount: Math.round(Number(amount) * 100) });
+        else if (text.trim()) await api.sendMessage(convId, { type: "text", body: text.trim() });
+      } else {
+        // yeni konuşma: teklifse mesajsız aç, değilse yazılan/şablon mesaj
+        const created = await api.startConversation(id, composer === "offer" ? undefined : (text.trim() || "Merhaba, ilanınız hâlâ satılık mı?"));
+        convId = created.id;
+        if (composer === "offer" && amount) await api.sendMessage(convId, { type: "offer", offerAmount: Math.round(Number(amount) * 100) });
       }
-      router.push(`/mesajlar/${conv.id}`);
+      router.push(`/mesajlar/${convId}`);
     } catch (e) {
       alert("Gönderilemedi: " + (e as Error).message);
     } finally {

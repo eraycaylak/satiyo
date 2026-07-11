@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import type { Conversation, Message } from "@satiyo/shared";
 import { api, tokenStore } from "@/lib/client";
 import { useAuth } from "@/lib/auth";
-import { formatPrice, timeAgo } from "@/lib/format";
+import { formatPrice, presenceText, timeAgo } from "@/lib/format";
 
 const QUICK = ["Hâlâ satılık mı?", "Son fiyat nedir?", "Ne zaman bakabilirim?", "Takas olur mu?"];
 
@@ -96,9 +96,15 @@ export function Chat({ conversationId }: { conversationId: string }) {
         <button className="btn btn-ghost" onClick={() => router.push("/mesajlar")}>← Mesajlar</button>
         <div className="row" style={{ gap: 8 }}>
           {conv && <button className="btn btn-ghost" onClick={() => { setReviewOpen(true); setReviewMsg(null); }}>⭐ Değerlendir</button>}
-          <span className="badge" style={{ background: connected ? "var(--brand-50)" : "var(--surface-2)", color: connected ? "var(--brand-600)" : "var(--text-muted)" }}>
-            {connected ? "● Çevrimiçi" : "○ Bağlanıyor"}
-          </span>
+          {(() => {
+            const p = presenceText(conv?.otherUser?.lastSeen);
+            if (p) {
+              const online = p.startsWith("●");
+              return <span className="badge" style={{ background: online ? "var(--brand-50)" : "var(--surface-2)", color: online ? "var(--brand-600)" : "var(--text-muted)" }}>{p}</span>;
+            }
+            if (!connected) return <span className="badge" style={{ background: "var(--surface-2)", color: "var(--text-muted)" }}>bağlanıyor…</span>;
+            return null;
+          })()}
         </div>
       </div>
 

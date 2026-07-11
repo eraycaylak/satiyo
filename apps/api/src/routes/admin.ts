@@ -2,9 +2,10 @@ import { Hono } from "hono";
 import type { Env, Variables } from "../env.js";
 import { badRequest, notFound } from "../lib/http.js";
 import { newId, now } from "../lib/id.js";
-import { foldTr } from "@satiyo/shared";
+import { adminConfigSchema, adminUpdateListingSchema, foldTr, getCategory, isValidVergiNo } from "@satiyo/shared";
 import { getSetting, setSetting, getGeminiKey } from "../lib/settings.js";
 import { hydrateListings, rowToListing } from "../lib/db.js";
+import { notify } from "../lib/notify.js";
 import { requireAuth } from "../middleware/auth.js";
 import { requireAdmin } from "../middleware/admin.js";
 
@@ -81,6 +82,49 @@ adminRoutes.get("/stats", async (c) => {
     },
     ai: { suggestionsTotal: num(ai?.total), suggestionsToday: num(ai?.today) },
   });
+});
+
+// --- Özet dashboard ekstraları: 7-gün ilan serisi + kategori kırılımı + aktivite feed ---
+adminRoutes.get("/overview", async (c) => {
+  const t = now();
+  const day = 86_400_000;
+  const num = (v: unknown) => Number(v ?? 0);
+
+  // 7 günlük yeni ilan serisi (boş günler 0 ile doldurulur)
+  const rowsDaily = await c.env.DB.prepare(
+    `SELECT strftime('%Y-%m-%d', created_at/1000, 'unixepoch') d, COUNT(*) c
+     FROM listings WHERE created_at >= ?1 GROUP BY d`,
+  ).bind(t - 7 * day).all();
+  const dailyMap = new Map<string, number>();
+  for (const r of rowsDaily.results as Record<string, unknown>[]) dailyMap.set(String(r.d), num(r.c));
+  const listingsDaily: { day: string; count: number }[] = [];
+  for (let i = 6; i >= 0; i--) {
+    const dstr = new Date(t - i * day).toISOString().slice(0, 10);
+    listingsDaily.push({ day: dstr, count: dailyMap.get(dstr) ?? 0 });
+  }
+
+  // Kategori kırılımı (aktif ilanlar, top 6)
+  const catRows = await c.env.DB.prepare(
+    `SELECT category_id, COUNT(*) c FROM listings WHERE status='active' GROUP BY category_id ORDER BY c DESC LIMIT 6`,
+  ).all();
+  const categoryBreakdown = (catRows.results as Record<string, unknown>[]).map((r) => {
+    const cat = getCategory(String(r.category_id));
+    return { categoryId: String(r.category_id), name: cat?.name ?? String(r.category_id), icon: cat?.icon ?? "🏷️", count: num(r.c) };
+  });
+
+  // Son aktiviteler (kullanıcı/ilan/şikayet birleşik, zamana göre)
+  const [uAct, lAct, rAct] = await Promise.all([
+    c.env.DB.prepare(`SELECT name, created_at FROM users ORDER BY created_at DESC LIMIT 6`).all(),
+    c.env.DB.prepare(`SELECT title, created_at FROM listings ORDER BY created_at DESC LIMIT 6`).all(),
+    c.env.DB.prepare(`SELECT target_id, created_at FROM reports ORDER BY created_at DESC LIMIT 6`).all(),
+  ]);
+  const acts: { type: string; title: string; subtitle: string; at: number }[] = [];
+  for (const r of uAct.results as Record<string, unknown>[]) acts.push({ type: "user", title: "Yeni kullanıcı kaydoldu", subtitle: String(r.name ?? "—"), at: num(r.created_at) });
+  for (const r of lAct.results as Record<string, unknown>[]) acts.push({ type: "listing", title: "Yeni ilan eklendi", subtitle: String(r.title ?? "—"), at: num(r.created_at) });
+  for (const r of rAct.results as Record<string, unknown>[]) acts.push({ type: "report", title: "Şikayet bildirildi", subtitle: `İlan ID #${String(r.target_id ?? "")}`, at: num(r.created_at) });
+  acts.sort((a, b) => b.at - a.at);
+
+  return c.json({ listingsDaily, categoryBreakdown, recentActivity: acts.slice(0, 8) });
 });
 
 // --- Cüzdanlar: en yüksek bakiyeler + toplam + son hareketler ---
@@ -223,6 +267,108 @@ async function geminiHealth(key: string): Promise<string> {
     return "unreachable";
   }
 }
+
+// --- C5: Admin ilan düzenleme (sahiplik atlanır; tam status + görüntüleme sayısı) ---
+adminRoutes.patch("/listings/:id", async (c) => {
+  const id = c.req.param("id");
+  const row = await c.env.DB.prepare(`SELECT * FROM listings WHERE id = ?`).bind(id).first();
+  if (!row) notFound("İlan bulunamadı");
+  const parsed = adminUpdateListingSchema.safeParse(await c.req.json().catch(() => ({})));
+  if (!parsed.success) badRequest("Geçersiz", parsed.error.flatten());
+  const input = parsed.data!;
+
+  const map: Record<string, unknown> = {
+    title: input.title, description: input.description, category_id: input.categoryId,
+    price: input.price, price_type: input.priceType, condition: input.condition,
+    city: input.city, district: input.district, status: input.status, view_count: input.viewCount,
+  };
+  const fields: string[] = []; const binds: unknown[] = [];
+  for (const [col, val] of Object.entries(map)) if (val !== undefined) { fields.push(`${col} = ?`); binds.push(val); }
+  if (fields.length) {
+    fields.push("updated_at = ?"); binds.push(now());
+    await c.env.DB.prepare(`UPDATE listings SET ${fields.join(", ")} WHERE id = ?`).bind(...binds, id).run();
+  }
+
+  // FTS senkronu: aktif değilse çıkar; aktif + başlık/açıklama/durum değiştiyse tazele
+  const finalStatus = String(input.status ?? row!.status);
+  if (input.title !== undefined || input.description !== undefined || input.status !== undefined) {
+    await c.env.DB.prepare(`DELETE FROM listings_fts WHERE listing_id = ?`).bind(id).run();
+    if (finalStatus === "active") {
+      const title = String(input.title ?? row!.title);
+      const desc = String(input.description ?? row!.description ?? "");
+      await c.env.DB.prepare(`INSERT INTO listings_fts (listing_id, title, body) VALUES (?, ?, ?)`).bind(id, foldTr(title), foldTr(desc)).run();
+    }
+  }
+
+  const updated = await c.env.DB.prepare(`SELECT * FROM listings WHERE id = ?`).bind(id).first();
+  const [listing] = await hydrateListings(c.env.DB, [rowToListing(updated as Record<string, unknown>)], { withSeller: true });
+  return c.json(listing);
+});
+
+// --- C2: Zorunlu güncelleme config (oku/yaz) ---
+const CONFIG_KEYS = ["min_version_ios", "min_version_android", "latest_version_ios", "latest_version_android", "store_url_ios", "store_url_android", "update_message"];
+adminRoutes.get("/config", async (c) => {
+  const out: Record<string, string> = {};
+  for (const k of CONFIG_KEYS) out[k] = (await getSetting(c.env.DB, k)) ?? "";
+  return c.json(out);
+});
+adminRoutes.post("/config", async (c) => {
+  const parsed = adminConfigSchema.safeParse(await c.req.json().catch(() => ({})));
+  if (!parsed.success) badRequest("Geçersiz", parsed.error.flatten());
+  await setSetting(c.env.DB, parsed.data!.key, parsed.data!.value);
+  return c.json({ ok: true as const });
+});
+
+// --- C4: Mağaza başvuru onay kuyruğu ---
+adminRoutes.get("/store-applications", async (c) => {
+  const status = (c.req.query("status") ?? "pending").trim();
+  const rows = await c.env.DB.prepare(
+    `SELECT sa.*, u.name AS user_name, u.phone AS user_phone FROM store_applications sa
+     JOIN users u ON u.id = sa.user_id WHERE sa.status = ? ORDER BY sa.created_at DESC LIMIT 100`,
+  ).bind(status).all();
+  const out = await Promise.all((rows.results as Record<string, unknown>[]).map(async (r) => {
+    const docIds: string[] = JSON.parse(String(r.doc_ids ?? "[]"));
+    let docUrls: string[] = [];
+    if (docIds.length) {
+      const ph = docIds.map(() => "?").join(",");
+      const imgs = await c.env.DB.prepare(`SELECT url FROM listing_images WHERE id IN (${ph})`).bind(...docIds).all();
+      docUrls = (imgs.results as Record<string, unknown>[]).map((x) => x.url as string);
+    }
+    return {
+      id: r.id, storeName: r.store_name, legalType: r.legal_type, taxNo: (r.tax_no as string) ?? null,
+      docIds, docUrls, status: r.status, reviewNote: (r.review_note as string) ?? null,
+      createdAt: r.created_at, reviewedAt: (r.reviewed_at as number) ?? null,
+      userId: r.user_id, userName: r.user_name, userPhone: r.user_phone,
+      tcVerified: !!r.tc_hash, taxVerified: r.tax_no ? isValidVergiNo(String(r.tax_no)) : false,
+    };
+  }));
+  return c.json(out);
+});
+adminRoutes.post("/store-applications/:id/approve", async (c) => {
+  const id = c.req.param("id");
+  const admin = c.get("user");
+  const app = await c.env.DB.prepare(`SELECT * FROM store_applications WHERE id = ?`).bind(id).first();
+  if (!app) notFound("Başvuru bulunamadı");
+  await c.env.DB.batch([
+    c.env.DB.prepare(`UPDATE store_applications SET status='approved', reviewer_id=?, reviewed_at=? WHERE id=?`).bind(admin.id, now(), id),
+    c.env.DB.prepare(`UPDATE users SET is_store=1, store_name=?, store_status='approved', store_verified_at=? WHERE id=?`).bind(app!.store_name, now(), app!.user_id),
+  ]);
+  await notify(c.env.DB, app!.user_id as string, "system", "Mağaza başvurun onaylandı 🎉", "Artık onaylı mağaza olarak satış yapabilirsin.", {});
+  return c.json({ ok: true as const });
+});
+adminRoutes.post("/store-applications/:id/reject", async (c) => {
+  const id = c.req.param("id");
+  const admin = c.get("user");
+  const body = (await c.req.json().catch(() => ({}))) as { note?: string };
+  const app = await c.env.DB.prepare(`SELECT user_id FROM store_applications WHERE id = ?`).bind(id).first();
+  if (!app) notFound("Başvuru bulunamadı");
+  await c.env.DB.batch([
+    c.env.DB.prepare(`UPDATE store_applications SET status='rejected', reviewer_id=?, review_note=?, reviewed_at=? WHERE id=?`).bind(admin.id, body.note ?? null, now(), id),
+    c.env.DB.prepare(`UPDATE users SET store_status='rejected' WHERE id=?`).bind(app!.user_id),
+  ]);
+  await notify(c.env.DB, app!.user_id as string, "system", "Mağaza başvurun reddedildi", body.note ?? "Başvuru gereklilikleri karşılamıyor.", {});
+  return c.json({ ok: true as const });
+});
 
 // --- Kullanıcı listesi (son görülme + ilan sayısı) ---
 adminRoutes.get("/users", async (c) => {

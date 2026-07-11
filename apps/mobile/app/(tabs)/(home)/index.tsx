@@ -1,20 +1,22 @@
-import { useState, type ComponentProps } from "react";
+import { useEffect, useState, type ComponentProps } from "react";
 import { Alert, Dimensions, FlatList, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
-import { getChildren, type SearchFilters, type SortOption } from "@satiyo/shared";
+import { cityToCoords, getChildren, type SearchFilters, type SortOption } from "@satiyo/shared";
 import { api } from "@/lib/client";
 import { track } from "@/lib/analytics";
 import { useAuth } from "@/lib/auth";
 import { radius, space, useTheme } from "@/lib/theme";
 import { ListingCard } from "@/components/ListingCard";
 import { ListingsMap } from "@/components/ListingsMap";
+import { CityPicker } from "@/components/CityPicker";
 import { Badge, Empty, Loading } from "@/components/ui";
 
 const GAP = space.md;
 const SORTS: { v: SortOption; l: string }[] = [
   { v: "relevance", l: "İlgili" }, { v: "newest", l: "En yeni" },
+  { v: "nearest", l: "Yakınımdakiler" },
   { v: "price_asc", l: "Artan" }, { v: "price_desc", l: "Azalan" },
 ];
 
@@ -42,8 +44,17 @@ export default function ExploreScreen() {
   const [categoryId, setCategoryId] = useState<string | undefined>();
   const [sort, setSort] = useState<SortOption>("relevance");
   const [view, setView] = useState<"list" | "map">("list");
+  const [city, setCity] = useState<string>(""); // "" = tüm Türkiye
 
-  const filters: SearchFilters = { q: submitted || undefined, categoryId, sort, pageSize: 24 };
+  // Varsayılan: kullanıcının şehri (yerel odak). Kullanıcı "Tüm TR" ile genişletebilir.
+  useEffect(() => { if (!city && user?.city) setCity(user.city); }, [user]);
+
+  const coords = sort === "nearest" ? cityToCoords(city || user?.city) : null;
+  const filters: SearchFilters = {
+    q: submitted || undefined, categoryId, sort, pageSize: 24,
+    city: city || undefined,
+    ...(coords ? { lat: coords[0], lng: coords[1] } : {}),
+  };
   const { data, isLoading, isError, refetch, isFetching } = useQuery({
     queryKey: ["listings", filters],
     queryFn: () => api.search(filters),
@@ -70,6 +81,16 @@ export default function ExploreScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: t.bg }}>
       <View style={{ padding: space.lg, paddingBottom: space.sm, gap: space.md }}>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+          <Ionicons name="location" size={18} color={t.brand} />
+          <View style={{ flex: 1 }}><CityPicker value={city} onSelect={setCity} placeholder="Tüm Türkiye" /></View>
+          {city ? (
+            <Pressable onPress={() => setCity("")} hitSlop={8} style={{ borderWidth: 1, borderColor: t.brand, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 9 }}>
+              <Text style={{ color: t.brand, fontSize: 12, fontWeight: "700" }}>Tüm TR</Text>
+            </Pressable>
+          ) : null}
+        </View>
+        {city ? <Text style={{ color: t.muted, fontSize: 12, marginTop: -4 }}>Daha fazla ilan için “Tüm TR” ile aralığı genişletebilirsin.</Text> : null}
         <TextInput
           value={q}
           onChangeText={setQ}

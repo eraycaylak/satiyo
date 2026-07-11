@@ -5,7 +5,8 @@ import { getAttributeSchema, getCategory, type PriceType } from "@satiyo/shared"
 import { api } from "@/lib/client";
 import { useAuth } from "@/lib/auth";
 import { uploadImage, type UploadedImage } from "@/lib/upload";
-import { guessCategory, leafCategories } from "@/lib/categoryGuess";
+import { guessCategory } from "@/lib/categoryGuess";
+import { CategoryPicker } from "@/components/CategoryPicker";
 import { formatPrice } from "@/lib/format";
 
 const STEPS = ["Fotoğraf", "Başlık & Kategori", "Özellikler", "Fiyat", "Konum", "Önizleme"];
@@ -132,10 +133,7 @@ export default function CreateListingPage() {
             </div>
             <div className="field" style={{ margin: 0 }}>
               <label className="label">Kategori {!touchedCat && categoryId && <span className="badge badge-brand">otomatik</span>}</label>
-              <select className="input" value={categoryId} onChange={(e) => { setCategoryId(e.target.value); setTouchedCat(true); }}>
-                <option value="">Seç…</option>
-                {leafCategories().map((c) => <option key={c.id} value={c.id}>{c.icon} {c.name}</option>)}
-              </select>
+              <CategoryPicker value={categoryId} onSelect={(id) => { setCategoryId(id); setTouchedCat(true); }} />
             </div>
             <div className="field" style={{ margin: 0 }}>
               <label className="label">Açıklama</label>
@@ -149,12 +147,18 @@ export default function CreateListingPage() {
           schema.map((a) => (
             <div className="field" style={{ margin: 0 }} key={a.key}>
               <label className="label">{a.label}{a.required && " *"}{a.unit ? ` (${a.unit})` : ""}</label>
-              {a.type === "select" ? (
-                <select className="input" value={attributes[a.key] ?? ""} onChange={(e) => setAttributes({ ...attributes, [a.key]: e.target.value })}>
-                  <option value="">Seç…</option>
-                  {a.options?.map((o) => <option key={o} value={o}>{o}</option>)}
-                </select>
-              ) : (
+              {a.type === "select" ? (() => {
+                const depVal = a.dependsOn ? attributes[a.dependsOn] : undefined;
+                const opts = a.dependsOn ? (a.optionsByParent?.[depVal ?? ""] ?? []) : (a.options ?? []);
+                const depLabel = a.dependsOn ? (schema.find((x) => x.key === a.dependsOn)?.label ?? a.dependsOn) : "";
+                return (
+                  <select className="input" value={attributes[a.key] ?? ""} disabled={!!a.dependsOn && !depVal}
+                    onChange={(e) => setAttributes({ ...attributes, [a.key]: e.target.value })}>
+                    <option value="">{a.dependsOn && !depVal ? `Önce ${depLabel} seç` : "Seç…"}</option>
+                    {opts.map((o) => <option key={o} value={o}>{o}</option>)}
+                  </select>
+                );
+              })() : (
                 <input className="input" type={a.type === "number" ? "number" : "text"} value={attributes[a.key] ?? ""}
                   onChange={(e) => setAttributes({ ...attributes, [a.key]: e.target.value })} />
               )}

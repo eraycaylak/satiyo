@@ -5,5 +5,8 @@ export * from "./categories";
 export * from "./boost";
 export * from "./geo";
 export * from "./tr-provinces";
+export * from "./category-visual";
+export * from "./version";
+export * from "./verify-tr";
 export * from "./i18n";
 export * from "./api-client";

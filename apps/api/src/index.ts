@@ -17,6 +17,7 @@ import { reportRoutes } from "./routes/reports.js";
 import { adminRoutes } from "./routes/admin.js";
 import { eventRoutes } from "./routes/events.js";
 import { aiRoutes } from "./routes/ai.js";
+import { getSetting } from "./lib/settings.js";
 
 export { ChatRoom } from "./durable/ChatRoom.js";
 
@@ -54,6 +55,20 @@ app.get("/", (c) => c.json({ name: "Satıyo API", version: "0.1.0", ok: true }))
 app.get("/health", async (c) => {
   const r = await c.env.DB.prepare("SELECT 1 AS ok").first();
   return c.json({ ok: r?.ok === 1, env: c.env.ENVIRONMENT });
+});
+
+// Zorunlu güncelleme / uygulama config (public — auth yok). Anahtar yoksa fail-open (0.0.0 = kimseyi bloklama).
+app.get("/config", async (c) => {
+  const g = async (k: string) => (await getSetting(c.env.DB, k)) || "";
+  return c.json({
+    minVersion: { ios: (await g("min_version_ios")) || "0.0.0", android: (await g("min_version_android")) || "0.0.0" },
+    latestVersion: { ios: (await g("latest_version_ios")) || "0.0.0", android: (await g("latest_version_android")) || "0.0.0" },
+    storeUrl: {
+      ios: (await g("store_url_ios")) || "https://apps.apple.com/app/id6786818121",
+      android: (await g("store_url_android")) || "https://satiyo.app",
+    },
+    message: (await g("update_message")) || null,
+  });
 });
 
 // R2 medya servisi (MVP — prod'da CDN/Images önüne alınır)

@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
-import { Alert, Image, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { Alert, Image, KeyboardAvoidingView, Linking, Platform, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { useRouter } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
-import { getAttributeSchema, getCategory, getChildren, CATEGORIES, type PriceType } from "@satiyo/shared";
+import { getAttributeSchema, type PriceType } from "@satiyo/shared";
 import { api } from "@/lib/client";
 import { track } from "@/lib/analytics";
 import { useAuth } from "@/lib/auth";
@@ -10,8 +10,7 @@ import { uploadImage, type UploadedImage } from "@/lib/upload";
 import { radius, space, useTheme } from "@/lib/theme";
 import { Badge, Button, Loading } from "@/components/ui";
 import { CityPicker } from "@/components/CityPicker";
-
-const leaf = () => CATEGORIES.filter((c) => getChildren(c.id).length === 0);
+import { CategoryPicker } from "@/components/CategoryPicker";
 
 export default function CreateListingScreen() {
   const t = useTheme();
@@ -39,10 +38,19 @@ export default function CreateListingScreen() {
   if (loading || !user) return <Loading />;
   const input = { backgroundColor: t.surface, borderWidth: 1, borderColor: t.border, borderRadius: radius.md, padding: 12, color: t.text };
 
-  async function pick() {
-    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!perm.granted) return Alert.alert("İzin gerekli", "Galeriye erişim izni ver.");
-    const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 0.8, allowsMultipleSelection: true, selectionLimit: 12 - images.length });
+  async function addPhotos(fromCamera: boolean) {
+    const perm = fromCamera
+      ? await ImagePicker.requestCameraPermissionsAsync()
+      : await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!perm.granted) {
+      return Alert.alert("İzin gerekli", fromCamera ? "Fotoğraf çekmek için kamera izni ver." : "Fotoğraf seçmek için galeri izni ver.", [
+        { text: "Vazgeç", style: "cancel" },
+        { text: "Ayarlar", onPress: () => Linking.openSettings() },
+      ]);
+    }
+    const res = fromCamera
+      ? await ImagePicker.launchCameraAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 0.8 })
+      : await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 0.8, allowsMultipleSelection: true, selectionLimit: 12 - images.length });
     if (res.canceled) return;
     setUploading(true);
     try {
@@ -52,6 +60,13 @@ export default function CreateListingScreen() {
       }
     } catch (e) { Alert.alert("Hata", (e as Error).message); }
     finally { setUploading(false); }
+  }
+  function pick() {
+    Alert.alert("Fotoğraf ekle", undefined, [
+      { text: "📷 Fotoğraf çek", onPress: () => addPhotos(true) },
+      { text: "🖼️ Galeriden seç", onPress: () => addPhotos(false) },
+      { text: "Vazgeç", style: "cancel" },
+    ]);
   }
 
   async function publish() {
@@ -76,7 +91,8 @@ export default function CreateListingScreen() {
   }
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: t.bg }} contentContainerStyle={{ padding: space.lg, gap: space.md }}>
+    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: t.bg }} behavior={Platform.OS === "ios" ? "padding" : undefined} keyboardVerticalOffset={90}>
+    <ScrollView style={{ flex: 1, backgroundColor: t.bg }} contentContainerStyle={{ padding: space.lg, gap: space.md, paddingBottom: 48 }} keyboardShouldPersistTaps="handled">
       <Text style={{ fontWeight: "700", color: t.text }}>Fotoğraflar ({images.length}/12)</Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
         {images.map((img, i) => (
@@ -100,32 +116,34 @@ export default function CreateListingScreen() {
       <TextInput value={title} onChangeText={setTitle} placeholder="örn. iPhone 13 128 GB temiz" placeholderTextColor={t.muted} style={input} />
 
       <Text style={{ fontWeight: "700", color: t.text }}>Kategori</Text>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
-        {leaf().map((c) => (
-          <Pressable key={c.id} onPress={() => setCategoryId(c.id)}
-            style={{ borderWidth: 1, borderColor: categoryId === c.id ? t.brand : t.border, backgroundColor: categoryId === c.id ? t.brandSoft : t.surface, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 7 }}>
-            <Text style={{ color: categoryId === c.id ? t.brand : t.text, fontSize: 13 }}>{c.icon} {c.name}</Text>
-          </Pressable>
-        ))}
-      </ScrollView>
+      <CategoryPicker value={categoryId} onSelect={(id) => { setCategoryId(id); setAttributes({}); }} />
 
-      {schema.map((a) => (
-        <View key={a.key} style={{ gap: 6 }}>
-          <Text style={{ color: t.muted, fontWeight: "600", fontSize: 13 }}>{a.label}{a.required ? " *" : ""}</Text>
-          {a.type === "select" ? (
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }}>
-              {a.options?.map((o) => (
-                <Pressable key={o} onPress={() => setAttributes({ ...attributes, [a.key]: o })}>
-                  <Badge label={o} tone={attributes[a.key] === o ? "brand" : "default"} />
-                </Pressable>
-              ))}
-            </ScrollView>
-          ) : (
-            <TextInput value={attributes[a.key] ?? ""} onChangeText={(v) => setAttributes({ ...attributes, [a.key]: v })}
-              keyboardType={a.type === "number" ? "numeric" : "default"} style={input} placeholderTextColor={t.muted} />
-          )}
-        </View>
-      ))}
+      {schema.map((a) => {
+        const depVal = a.dependsOn ? attributes[a.dependsOn] : undefined;
+        const opts = a.dependsOn ? (a.optionsByParent?.[depVal ?? ""] ?? []) : (a.options ?? []);
+        const depLabel = a.dependsOn ? (schema.find((x) => x.key === a.dependsOn)?.label ?? a.dependsOn) : "";
+        return (
+          <View key={a.key} style={{ gap: 6 }}>
+            <Text style={{ color: t.muted, fontWeight: "600", fontSize: 13 }}>{a.label}{a.required ? " *" : ""}</Text>
+            {a.type === "select" ? (
+              a.dependsOn && !depVal ? (
+                <Text style={{ color: t.muted, fontSize: 12 }}>Önce {depLabel} seç</Text>
+              ) : (
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }}>
+                  {opts.map((o) => (
+                    <Pressable key={o} onPress={() => setAttributes({ ...attributes, [a.key]: o })}>
+                      <Badge label={o} tone={attributes[a.key] === o ? "brand" : "default"} />
+                    </Pressable>
+                  ))}
+                </ScrollView>
+              )
+            ) : (
+              <TextInput value={attributes[a.key] ?? ""} onChangeText={(v) => setAttributes({ ...attributes, [a.key]: v })}
+                keyboardType={a.type === "number" ? "numeric" : "default"} style={input} placeholderTextColor={t.muted} />
+            )}
+          </View>
+        );
+      })}
 
       <Text style={{ fontWeight: "700", color: t.text }}>Fiyat tipi</Text>
       <View style={{ flexDirection: "row", gap: 8, flexWrap: "wrap" }}>
@@ -149,5 +167,6 @@ export default function CreateListingScreen() {
 
       <Button title={busy ? "Yayınlanıyor…" : "Yayınla"} onPress={publish} loading={busy} />
     </ScrollView>
+    </KeyboardAvoidingView>
   );
 }

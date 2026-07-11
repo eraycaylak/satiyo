@@ -48,8 +48,12 @@ export default function ListingDetailScreen() {
   async function message(offer?: boolean) {
     if (!user) return router.push("/giris");
     try {
-      const conv = await api.startConversation(id!, offer ? "Teklifim var" : "Merhaba, ilanınız hâlâ satılık mı?");
       track("contact_seller", { id, offer: !!offer });
+      // A2 — mevcut konuşmayı aç; her tıkta yeni mesaj GÖNDERME
+      const convs = await api.conversations().catch(() => []);
+      const existing = convs.find((c) => c.listingId === id && c.buyerId === user.id);
+      if (existing) { router.push(`/sohbet/${existing.id}`); return; }
+      const conv = await api.startConversation(id!, offer ? "Teklifim var" : "Merhaba, ilanınız hâlâ satılık mı?");
       router.push(`/sohbet/${conv.id}`);
     } catch (e) { Alert.alert("Hata", (e as Error).message); }
   }

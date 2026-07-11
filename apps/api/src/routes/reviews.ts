@@ -26,6 +26,18 @@ reviewRoutes.post("/", requireAuth, async (c) => {
   ).bind(input.listingId, user.id, user.id).first();
   if (!isSeller && !conv) forbidden("Bu ilanla ilgili işleminiz yok");
 
+  // A3 — değerlendirme yalnız satış tamamlandığında (sold/reserved). Aktif ilana yapılamaz.
+  if (listing!.status !== "sold" && listing!.status !== "reserved") {
+    badRequest("Değerlendirme için önce satışın tamamlanması gerekir");
+  }
+  // Alıcı kaydı (sold_to) varsa yalnız satıcı ↔ o alıcı birbirini değerlendirebilir
+  const soldTo = (listing!.sold_to as string | null) ?? null;
+  if (soldTo) {
+    const okPair = (isSeller && input.reviewedId === soldTo)
+      || (user.id === soldTo && input.reviewedId === listing!.seller_id);
+    if (!okPair) forbidden("Bu satışın tarafı değilsiniz");
+  }
+
   try {
     const id = newId("rev");
     await c.env.DB.prepare(

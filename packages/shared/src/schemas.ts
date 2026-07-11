@@ -77,7 +77,47 @@ export const sendMessageSchema = z.object({
 
 export const startConversationSchema = z.object({
   listingId: z.string().min(1),
-  body: z.string().trim().min(1).max(2000),
+  // Opsiyonel: verilirse yalnız YENİ konuşmada açılış mesajı olarak yazılır (A2).
+  body: z.string().trim().min(1).max(2000).optional(),
+});
+
+// A3 — ilanı satıldı işaretle (kime/nereden)
+export const markSoldSchema = z.object({
+  buyerId: z.string().min(1).optional(),
+  channel: z.enum(["satiyo", "disarida"]).default("satiyo"),
+});
+
+// C4 — mağaza başvurusu (belge + kimlik)
+export const storeApplySchema = z.object({
+  storeName: z.string().trim().min(2).max(80),
+  legalType: z.enum(["individual", "company"]),
+  tcNo: z.string().trim().regex(/^\d{11}$/).optional(),
+  taxNo: z.string().trim().regex(/^\d{10}$/).optional(),
+  docImageIds: z.array(z.string().min(1)).min(1).max(6),
+});
+
+// C2 — admin config anahtarı yaz
+export const adminConfigSchema = z.object({
+  key: z.enum([
+    "min_version_ios", "min_version_android",
+    "latest_version_ios", "latest_version_android",
+    "store_url_ios", "store_url_android", "update_message",
+  ]),
+  value: z.string().trim().max(500),
+});
+
+// C5 — admin ilan düzenleme (sahiplik atlanır; tam status + görüntüleme)
+export const adminUpdateListingSchema = z.object({
+  title: z.string().trim().min(3).max(120).optional(),
+  description: z.string().trim().max(4000).optional(),
+  categoryId: z.string().trim().min(1).optional(),
+  price: z.number().int().nonnegative().max(100_000_000).optional(),
+  priceType: priceTypeSchema.optional(),
+  condition: conditionSchema.optional(),
+  city: z.string().trim().max(60).optional(),
+  district: z.string().trim().max(60).optional(),
+  status: z.enum(["active", "sold", "reserved", "removed", "draft"]).optional(),
+  viewCount: z.number().int().nonnegative().max(100_000_000).optional(),
 });
 
 export const offerActionSchema = z.object({

@@ -1,125 +1,63 @@
 /**
- * Kategori ağacı ve kategoriye-özel öznitelik şemaları.
- * İlan ver akışındaki dinamik alanlar ve arama filtreleri bunu kullanır.
- * Şema admin panelinden DB'ye taşınana kadar tek doğruluk kaynağı burası.
+ * Kategori taksonomisi — data/*.ts kök alt-ağaçlarını birleştirir, O(1) indeks kurar.
+ * Tipler category-types.ts'te; ağaç data/ dizininde. Bu dosya yükleyici + sorgu API'si.
  */
+import type { AttributeDef, CategoryNode } from "./category-types";
+import { ALL_CATEGORIES } from "./data";
 
-export type AttributeType = "text" | "number" | "select" | "boolean";
+export type { AttributeType, AttributeDef, CategoryNode } from "./category-types";
+export { CONDITION, CLOTHING_SIZES } from "./category-types";
 
-export interface AttributeDef {
-  key: string;
-  label: string;
-  type: AttributeType;
-  required?: boolean;
-  unit?: string;
-  options?: string[];
+export const CATEGORIES: CategoryNode[] = ALL_CATEGORIES;
+
+// --- İndeksler (yüzlerce düğümde linear find yerine O(1)) ---
+const byId = new Map<string, CategoryNode>();
+const byParent = new Map<string, CategoryNode[]>();
+const ROOT_KEY = "__root__";
+for (const c of CATEGORIES) {
+  byId.set(c.id, c);
+  const key = c.parentId ?? ROOT_KEY;
+  const arr = byParent.get(key);
+  if (arr) arr.push(c);
+  else byParent.set(key, [c]);
 }
-
-export interface CategoryNode {
-  id: string;
-  slug: string;
-  name: string;
-  icon: string;
-  parentId: string | null;
-  attributes?: AttributeDef[];
-}
-
-const CONDITION: AttributeDef = {
-  key: "condition",
-  label: "Durum",
-  type: "select",
-  required: true,
-  options: ["Sıfır", "Yeni gibi", "İyi", "Orta", "Yıpranmış"],
-};
-
-export const CATEGORIES: CategoryNode[] = [
-  // Kök kategoriler
-  { id: "elektronik", slug: "elektronik", name: "Elektronik", icon: "📱", parentId: null },
-  { id: "ev-yasam", slug: "ev-yasam", name: "Ev & Yaşam", icon: "🛋️", parentId: null },
-  { id: "moda", slug: "moda", name: "Moda & Giyim", icon: "👕", parentId: null },
-  { id: "vasita", slug: "vasita", name: "Vasıta", icon: "🚗", parentId: null },
-  { id: "hobi", slug: "hobi", name: "Hobi & Oyun", icon: "🎮", parentId: null },
-  { id: "bebek", slug: "bebek", name: "Anne & Bebek", icon: "🍼", parentId: null },
-
-  // Elektronik alt
-  {
-    id: "telefon",
-    slug: "telefon",
-    name: "Cep Telefonu",
-    icon: "📱",
-    parentId: "elektronik",
-    attributes: [
-      { key: "brand", label: "Marka", type: "select", required: true, options: ["Apple", "Samsung", "Xiaomi", "Huawei", "Oppo", "Diğer"] },
-      { key: "model", label: "Model", type: "text", required: true },
-      { key: "storage", label: "Hafıza", type: "select", options: ["64 GB", "128 GB", "256 GB", "512 GB", "1 TB"] },
-      CONDITION,
-    ],
-  },
-  {
-    id: "bilgisayar",
-    slug: "bilgisayar",
-    name: "Bilgisayar",
-    icon: "💻",
-    parentId: "elektronik",
-    attributes: [
-      { key: "type", label: "Tür", type: "select", options: ["Dizüstü", "Masaüstü", "Tablet", "Bileşen"] },
-      { key: "brand", label: "Marka", type: "text" },
-      { key: "ram", label: "RAM", type: "select", options: ["4 GB", "8 GB", "16 GB", "32 GB", "64 GB"] },
-      CONDITION,
-    ],
-  },
-
-  // Vasıta alt
-  {
-    id: "otomobil",
-    slug: "otomobil",
-    name: "Otomobil",
-    icon: "🚙",
-    parentId: "vasita",
-    attributes: [
-      { key: "brand", label: "Marka", type: "text", required: true },
-      { key: "model", label: "Model", type: "text", required: true },
-      { key: "year", label: "Yıl", type: "number", required: true },
-      { key: "km", label: "Kilometre", type: "number", unit: "km" },
-      { key: "fuel", label: "Yakıt", type: "select", options: ["Benzin", "Dizel", "LPG", "Hibrit", "Elektrik"] },
-      { key: "gear", label: "Vites", type: "select", options: ["Manuel", "Otomatik"] },
-    ],
-  },
-
-  // Ev & Yaşam alt
-  {
-    id: "beyaz-esya",
-    slug: "beyaz-esya",
-    name: "Beyaz Eşya",
-    icon: "🧊",
-    parentId: "ev-yasam",
-    attributes: [
-      { key: "type", label: "Tür", type: "select", options: ["Buzdolabı", "Çamaşır Makinesi", "Bulaşık Makinesi", "Fırın", "Diğer"] },
-      { key: "brand", label: "Marka", type: "text" },
-      CONDITION,
-    ],
-  },
-  {
-    id: "mobilya",
-    slug: "mobilya",
-    name: "Mobilya",
-    icon: "🛏️",
-    parentId: "ev-yasam",
-    attributes: [
-      { key: "type", label: "Tür", type: "select", options: ["Koltuk", "Yatak", "Masa", "Dolap", "Sandalye", "Diğer"] },
-      CONDITION,
-    ],
-  },
-];
 
 export function getCategory(id: string): CategoryNode | undefined {
-  return CATEGORIES.find((c) => c.id === id);
+  return byId.get(id);
 }
 
 export function getChildren(parentId: string | null): CategoryNode[] {
-  return CATEGORIES.filter((c) => c.parentId === parentId);
+  return byParent.get(parentId ?? ROOT_KEY) ?? [];
 }
 
 export function getAttributeSchema(categoryId: string): AttributeDef[] {
-  return getCategory(categoryId)?.attributes ?? [];
+  return byId.get(categoryId)?.attributes ?? [];
+}
+
+/** Kökten verilen kategoriye kadar yol (breadcrumb için). */
+export function getCategoryPath(id: string): CategoryNode[] {
+  const path: CategoryNode[] = [];
+  let cur = byId.get(id);
+  let guard = 0;
+  while (cur && guard++ < 20) {
+    path.unshift(cur);
+    cur = cur.parentId ? byId.get(cur.parentId) : undefined;
+  }
+  return path;
+}
+
+/** Kök kategoriler (parentId null). */
+export function rootCategories(): CategoryNode[] {
+  return byParent.get(ROOT_KEY) ?? [];
+}
+
+/** Yaprak kategoriler (alt kategorisi olmayan — ilan bunlardan birine düşer). */
+export function leafCategories(): CategoryNode[] {
+  return CATEGORIES.filter((c) => !byParent.has(c.id));
+}
+
+/** Bir kategorinin kök atası (renkli ikon eşlemesi CATEGORY_VISUAL için). */
+export function rootOf(id: string): CategoryNode | undefined {
+  const path = getCategoryPath(id);
+  return path[0];
 }

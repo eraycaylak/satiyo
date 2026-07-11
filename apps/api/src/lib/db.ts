@@ -46,6 +46,7 @@ export function rowToSeller(r: Record<string, unknown>): PublicSeller {
     identityVerified: !!r.identity_verified,
     ratingAvg: r.rating_avg != null ? Number(r.rating_avg) : undefined,
     ratingCount: r.rating_count != null ? Number(r.rating_count) : undefined,
+    lastSeen: r.last_seen != null ? Number(r.last_seen) : null,
   };
 }
 
@@ -78,6 +79,10 @@ export function rowToListing(r: Record<string, unknown>): Listing {
     createdAt: r.created_at as number,
     updatedAt: r.updated_at as number,
     boostedUntil: (r.boosted_until as number) ?? null,
+    quantity: (r.quantity as number) ?? 1,
+    soldTo: (r.sold_to as string) ?? null,
+    soldAt: (r.sold_at as number) ?? null,
+    soldChannel: (r.sold_channel as Listing["soldChannel"]) ?? null,
     images: [],
     attributes: {},
   };

@@ -3,16 +3,20 @@ import {
   buildFtsQuery,
   createListingSchema,
   CATEGORIES,
+  cityToCoords,
   DEFAULT_SYNONYMS,
   foldTr,
   getCategory,
+  jitter,
+  markSoldSchema,
   searchQuerySchema,
   updateListingSchema,
 } from "@satiyo/shared";
 import type { Env, Variables } from "../env.js";
 import { badRequest, forbidden, notFound } from "../lib/http.js";
 import { newId, now } from "../lib/id.js";
-import { hydrateListings, rowToListing } from "../lib/db.js";
+import { hydrateListings, rowToListing, rowToSeller } from "../lib/db.js";
+import { notify } from "../lib/notify.js";
 import { areBlocked } from "../lib/blocks.js";
 import { inspectListing } from "../lib/safety.js";
 import { listingMatchesQuery, type SavedQuery } from "../lib/match.js";
@@ -220,6 +224,14 @@ listingRoutes.post("/", requireAuth, async (c) => {
   const ts = now();
   const searchBody = buildSearchBody(input.categoryId, input.attributes, input.description);
 
+  // B4 — konum yoksa il-merkezi koordinatı + jitter ile doldur ("yakınımdakiler" çalışsın)
+  let lat = input.lat ?? null;
+  let lng = input.lng ?? null;
+  if ((lat == null || lng == null) && input.city) {
+    const coords = cityToCoords(input.city);
+    if (coords) { const [jlat, jlng] = jitter(coords, id); lat = jlat; lng = jlng; }
+  }
+
   const statements: D1PreparedStatement[] = [
     c.env.DB.prepare(
       `INSERT INTO listings (id, seller_id, title, description, category_id, price, price_type, condition, city, district, lat, lng, status, view_count, created_at, updated_at)
@@ -227,7 +239,7 @@ listingRoutes.post("/", requireAuth, async (c) => {
     ).bind(
       id, user.id, input.title, input.description, input.categoryId, input.price,
       input.priceType, input.condition, input.city ?? null, input.district ?? null,
-      input.lat ?? null, input.lng ?? null, input.status, ts, ts,
+      lat, lng, input.status, ts, ts,
     ),
     c.env.DB.prepare(`INSERT INTO listings_fts (listing_id, title, body) VALUES (?, ?, ?)`)
       .bind(id, foldTr(input.title), searchBody),
@@ -328,4 +340,48 @@ listingRoutes.delete("/:id", requireAuth, async (c) => {
     c.env.DB.prepare(`DELETE FROM listings_fts WHERE listing_id = ?`).bind(id),
   ]);
   return c.json({ ok: true as const });
+});
+
+// ============ POST /listings/:id/sold — satıldı işaretle (A3) ============
+listingRoutes.post("/:id/sold", requireAuth, async (c) => {
+  const id = c.req.param("id");
+  const user = c.get("user");
+  const row = await c.env.DB.prepare(`SELECT * FROM listings WHERE id = ?`).bind(id).first();
+  if (!row) notFound("İlan bulunamadı");
+  if (row!.seller_id !== user.id) forbidden("Bu ilan sizin değil");
+
+  const parsed = markSoldSchema.safeParse(await c.req.json().catch(() => ({})));
+  if (!parsed.success) badRequest("Geçersiz", parsed.error.flatten());
+  const { buyerId, channel } = parsed.data!;
+
+  const ts = now();
+  await c.env.DB.batch([
+    c.env.DB.prepare(`UPDATE listings SET status='sold', sold_to=?, sold_at=?, sold_channel=?, updated_at=? WHERE id=?`)
+      .bind(buyerId ?? null, ts, channel, ts, id),
+    c.env.DB.prepare(`DELETE FROM listings_fts WHERE listing_id = ?`).bind(id), // satılan aramada çıkmasın
+  ]);
+
+  // Satıyo içi satışta alıcıya değerlendirme daveti
+  if (buyerId && channel === "satiyo") {
+    await notify(c.env.DB, buyerId, "system", "Alışveriş tamamlandı", `"${row!.title as string}" için satıcıyı değerlendirebilirsin`, { listingId: id });
+  }
+
+  const updated = await c.env.DB.prepare(`SELECT * FROM listings WHERE id = ?`).bind(id).first();
+  const [listing] = await hydrateListings(c.env.DB, [rowToListing(updated as Record<string, unknown>)], { withSeller: true });
+  return c.json(listing);
+});
+
+// ============ GET /listings/:id/buyers — bu ilanda konuşan alıcı adayları (satıcı) ============
+listingRoutes.get("/:id/buyers", requireAuth, async (c) => {
+  const id = c.req.param("id");
+  const user = c.get("user");
+  const row = await c.env.DB.prepare(`SELECT seller_id FROM listings WHERE id = ?`).bind(id).first();
+  if (!row) notFound("İlan bulunamadı");
+  if (row!.seller_id !== user.id) forbidden("Bu ilan sizin değil");
+
+  const rows = await c.env.DB.prepare(
+    `SELECT u.* FROM conversations cv JOIN users u ON u.id = cv.buyer_id
+     WHERE cv.listing_id = ? GROUP BY u.id ORDER BY MAX(cv.last_message_at) DESC`,
+  ).bind(id).all();
+  return c.json((rows.results as Record<string, unknown>[]).map(rowToSeller));
 });

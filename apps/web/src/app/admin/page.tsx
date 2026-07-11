@@ -1,200 +1,136 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/client";
 import { useAuth } from "@/lib/auth";
-import { timeAgo } from "@/lib/format";
+import {
+  UsersSection, ListingsSection, WalletsSection,
+  ModerationSection, initials,
+} from "./sections";
+import { SystemSettings, AppSettings } from "./admin-settings";
+import { Dashboard, CategoriesSection, Placeholder } from "./dashboard";
+import { Icon } from "./icons";
+import "./admin.css";
+import "./admin-dash.css";
+
+type Tab =
+  | "overview" | "users" | "listings" | "categories" | "orders"
+  | "featured" | "reports" | "messages" | "moderation" | "system" | "appsettings" | "other";
+
+const NAV: { k: Tab; ic: string; label: string; badge?: "red" | "green" }[] = [
+  { k: "overview", ic: "home", label: "Özet" },
+  { k: "users", ic: "users", label: "Kullanıcılar" },
+  { k: "listings", ic: "tag", label: "İlanlar" },
+  { k: "categories", ic: "grid", label: "Kategoriler" },
+  { k: "orders", ic: "cart", label: "Siparişler" },
+  { k: "featured", ic: "star", label: "Öne Çıkanlar" },
+  { k: "reports", ic: "barchart", label: "Raporlar" },
+  { k: "messages", ic: "chat", label: "Mesajlar", badge: "green" },
+  { k: "moderation", ic: "alert", label: "Şikayetler", badge: "red" },
+  { k: "system", ic: "settings", label: "Sistem Ayarları" },
+  { k: "appsettings", ic: "sliders", label: "Uygulama Ayarları" },
+  { k: "other", ic: "layers", label: "Diğer Sayfalar" },
+];
 
 export default function AdminPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
-  const qc = useQueryClient();
-  const [tab, setTab] = useState<"stats" | "users" | "reports" | "synonyms">("stats");
-  const [newTerm, setNewTerm] = useState("");
-  const [newAliases, setNewAliases] = useState("");
-  const [userQuery, setUserQuery] = useState("");
+  const [tab, setTab] = useState<Tab>("overview");
+  const [open, setOpen] = useState(false);
+  const [dark, setDark] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) router.replace("/giris?next=/admin");
     if (!loading && user && !user.isAdmin) router.replace("/");
   }, [user, loading, router]);
+  useEffect(() => { setDark(document.documentElement.getAttribute("data-theme") === "dark"); }, []);
 
   const { data: stats } = useQuery({ queryKey: ["admin-stats"], queryFn: () => api.adminStats(), enabled: !!user?.isAdmin });
-  const { data: users } = useQuery({ queryKey: ["admin-users", userQuery], queryFn: () => api.adminUsers(userQuery || undefined), enabled: !!user?.isAdmin && tab === "users" });
-  const { data: reports } = useQuery({ queryKey: ["admin-reports"], queryFn: () => api.adminReports("open"), enabled: !!user?.isAdmin && tab === "reports" });
-  const { data: synonyms } = useQuery({ queryKey: ["admin-synonyms"], queryFn: () => api.adminSynonyms(), enabled: !!user?.isAdmin && tab === "synonyms" });
 
-  if (loading || !user?.isAdmin) return <div className="empty">Yükleniyor…</div>;
+  function toggleTheme() {
+    const next = dark ? "light" : "dark";
+    document.documentElement.setAttribute("data-theme", next);
+    try { localStorage.setItem("satiyo_theme", next); } catch { /* yoksay */ }
+    setDark(!dark);
+  }
+  function go(k: Tab) { setTab(k); setOpen(false); }
 
-  async function resolveReport(id: string, targetType: string, targetId: string, removeTarget: boolean) {
-    if (removeTarget && targetType === "listing") await api.adminRemoveListing(targetId);
-    if (removeTarget && targetType === "user") await api.adminBanUser(targetId);
-    await api.adminResolveReport(id);
-    qc.invalidateQueries({ queryKey: ["admin-reports"] });
-    qc.invalidateQueries({ queryKey: ["admin-stats"] });
-  }
-  async function addSynonym() {
-    if (!newTerm.trim() || !newAliases.trim()) return;
-    await api.adminAddSynonym(newTerm.trim(), newAliases.split(",").map((s) => s.trim()).filter(Boolean));
-    setNewTerm(""); setNewAliases("");
-    qc.invalidateQueries({ queryKey: ["admin-synonyms"] });
-  }
+  if (loading || !user?.isAdmin) return <div style={{ padding: 80, textAlign: "center", color: "var(--text-muted)" }}>Yükleniyor…</div>;
+
+  const reportsOpen = stats?.engagement.reportsOpen ?? 0;
+  const badgeVal = (k: Tab) => (k === "moderation" ? reportsOpen : k === "messages" ? (stats?.engagement.conversations ?? 0) : 0);
 
   return (
-    <div className="stack" style={{ gap: "var(--space-4)", maxWidth: 760, margin: "0 auto" }}>
-      <h1 style={{ fontSize: 24 }}>🛡️ Admin Paneli</h1>
-      <div className="row" style={{ gap: 8 }}>
-        {(["stats", "users", "reports", "synonyms"] as const).map((tb) => (
-          <button key={tb} className={`badge ${tab === tb ? "badge-brand" : ""}`} style={{ padding: "8px 14px", cursor: "pointer", border: "1px solid var(--border)" }} onClick={() => setTab(tb)}>
-            {tb === "stats" ? "Özet" : tb === "users" ? "Kullanıcılar" : tb === "reports" ? "Şikayetler" : "Synonym Sözlüğü"}
-          </button>
-        ))}
-      </div>
+    <div className={`ad ${open ? "open" : ""}`}>
+      <div className="ad-backdrop" onClick={() => setOpen(false)} />
 
-      {tab === "stats" && stats && (
-        <div className="stack" style={{ gap: "var(--space-5)" }}>
-          <StatSection title="👤 Kullanıcılar" items={[
-            ["Toplam", stats.users.total],
-            ["Doğrulanmış", stats.users.verified],
-            ["Mağaza", stats.users.stores],
-            ["Aktif (24s)", stats.users.active24h],
-            ["Aktif (7g)", stats.users.active7d],
-            ["Yeni (24s)", stats.users.new24h],
-            ["Yeni (7g)", stats.users.new7d],
-            ["Banlı", stats.users.banned],
-            ["Admin", stats.users.admins],
-          ]} />
-          <StatSection title="🏷️ İlanlar" items={[
-            ["Toplam", stats.listings.total],
-            ["Aktif", stats.listings.active],
-            ["Satıldı", stats.listings.sold],
-            ["Rezerve", stats.listings.reserved],
-            ["Kaldırıldı", stats.listings.removed],
-            ["Öne çıkan", stats.listings.boosted],
-            ["Yeni (24s)", stats.listings.new24h],
-            ["Yeni (7g)", stats.listings.new7d],
-          ]} />
-          <StatSection title="💬 Etkileşim" items={[
-            ["Konuşma", stats.engagement.conversations],
-            ["Mesaj", stats.engagement.messages],
-            ["Favori", stats.engagement.favorites],
-            ["Değerlendirme", stats.engagement.reviews],
-            ["Açık şikayet", stats.engagement.reportsOpen],
-            ["Toplam şikayet", stats.engagement.reportsTotal],
-          ]} />
-          {stats.activity && (
-            <StatSection title="📈 Uygulama Etkinliği" items={[
-              ["Olay (24s)", stats.activity.events24h],
-              ["Olay (7g)", stats.activity.events7d],
-              ...stats.activity.topEvents.map((e) => [`${evLabel(e.name)} (7g)`, e.c7] as [string, number]),
-            ]} />
-          )}
-          <StatSection title="💰 Gelir" items={[
-            ["Toplam ₺", new Intl.NumberFormat("tr-TR").format(Math.round(stats.revenue.totalKurus / 100))],
-            ["Ödeme sayısı", stats.revenue.payments],
-          ]} />
-        </div>
-      )}
-
-      {tab === "users" && (
-        <div className="stack" style={{ gap: 12 }}>
-          <input className="input" placeholder="Ara: isim veya telefon" value={userQuery} onChange={(e) => setUserQuery(e.target.value)} />
-          {!users ? <div className="empty">Yükleniyor…</div> :
-           users.length === 0 ? <div className="empty">Kullanıcı bulunamadı</div> :
-           users.map((u) => (
-            <div key={u.id} className="card stack" style={{ padding: "var(--space-3) var(--space-4)", gap: 6 }}>
-              <div className="spread">
-                <strong>{u.name ?? "—"}</strong>
-                <span className="muted" style={{ fontSize: 13 }}>{u.phone}</span>
-              </div>
-              <div className="row" style={{ gap: 6, flexWrap: "wrap", alignItems: "center" }}>
-                {u.isAdmin && <span className="badge badge-brand">admin</span>}
-                {u.isStore && <span className="badge">mağaza</span>}
-                {u.phoneVerified && <span className="badge">✓ doğrulanmış</span>}
-                {u.banned && <span className="badge" style={{ background: "var(--danger)", color: "#fff" }}>banlı</span>}
-                {u.city && <span className="muted" style={{ fontSize: 12 }}>📍 {u.city}</span>}
-              </div>
-              <div className="spread">
-                <span className="muted" style={{ fontSize: 12 }}>
-                  {u.listingCount} ilan · üyelik {timeAgo(u.createdAt)} · {u.lastSeen ? `son görülme ${timeAgo(u.lastSeen)}` : "hiç giriş yok"}
-                </span>
-                <button className="btn btn-ghost" onClick={async () => {
-                  if (u.banned) await api.adminUnbanUser(u.id); else await api.adminBanUser(u.id);
-                  qc.invalidateQueries({ queryKey: ["admin-users"] });
-                  qc.invalidateQueries({ queryKey: ["admin-stats"] });
-                }}>{u.banned ? "Ban kaldır" : "Banla"}</button>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {tab === "reports" && (
-        !reports || reports.length === 0 ? <div className="empty">Açık şikayet yok 🎉</div> :
-        reports.map((r) => (
-          <div key={r.id} className="card" style={{ padding: "var(--space-4)" }}>
-            <div className="spread">
-              <span className="badge">{r.targetType}</span>
-              <span className="muted" style={{ fontSize: 12 }}>{timeAgo(r.createdAt)}</span>
-            </div>
-            <p style={{ margin: "8px 0" }}><strong>{r.reason}</strong></p>
-            <p className="muted" style={{ fontSize: 12, margin: 0 }}>Bildiren: {r.reporterName} · Hedef: {r.targetId}</p>
-            <div className="row" style={{ gap: 8, marginTop: 10 }}>
-              <button className="btn btn-ghost" onClick={() => resolveReport(r.id, r.targetType, r.targetId, false)}>Çözüldü işaretle</button>
-              {r.targetType === "listing" && <button className="btn btn-primary" onClick={() => resolveReport(r.id, r.targetType, r.targetId, true)}>İlanı kaldır + çöz</button>}
-              {r.targetType === "user" && <button className="btn btn-primary" style={{ background: "var(--danger)" }} onClick={() => resolveReport(r.id, r.targetType, r.targetId, true)}>Kullanıcıyı banla + çöz</button>}
+      {/* Sidebar */}
+      <aside className="ad-side">
+        <div className="ad-brand">Satıyo</div>
+        <nav className="ad-nav">
+          {NAV.map((it) => {
+            const bv = badgeVal(it.k);
+            return (
+              <button key={it.k} className={`ad-navitem ${tab === it.k ? "on" : ""}`} onClick={() => go(it.k)}>
+                <span className="ic"><Icon name={it.ic} size={19} /></span>
+                <span className="txt">{it.label}</span>
+                {it.badge && bv > 0 && <span className={`badge ${it.badge}`}>{bv > 99 ? "99+" : bv}</span>}
+              </button>
+            );
+          })}
+        </nav>
+        <div className="ad-promo">
+          <h4>Satıyo</h4>
+          <p>Premium deneyim için mobil uygulamamızı deneyin.</p>
+          <div className="ad-store">
+            <a className="ad-storebtn" href="https://apps.apple.com/app/id6786818121" target="_blank" rel="noopener noreferrer">
+              <Icon name="apple" size={18} fill /><span><span className="sm">App Store'dan</span><br /><span className="big">İndir</span></span>
+            </a>
+            <div className="ad-storebtn" style={{ opacity: 0.85 }}>
+              <Icon name="play" size={16} fill /><span><span className="sm">Google Play</span><br /><span className="big">Yakında</span></span>
             </div>
           </div>
-        ))
-      )}
-
-      {tab === "synonyms" && (
-        <div className="stack" style={{ gap: 12 }}>
-          <div className="card stack" style={{ padding: "var(--space-4)", gap: 8 }}>
-            <strong>Yeni synonym ekle</strong>
-            <input className="input" placeholder="Terim (ör. telefon)" value={newTerm} onChange={(e) => setNewTerm(e.target.value)} />
-            <input className="input" placeholder="Eşler, virgülle (ör. cep, smartphone, ayfon)" value={newAliases} onChange={(e) => setNewAliases(e.target.value)} />
-            <button className="btn btn-primary" onClick={addSynonym}>Ekle</button>
-          </div>
-          {synonyms?.map((s) => (
-            <div key={s.id} className="card spread" style={{ padding: "var(--space-3) var(--space-4)" }}>
-              <span><strong>{s.term}</strong> → {s.aliases.join(", ")}</span>
-              <button className="btn btn-ghost" onClick={async () => { await api.adminDeleteSynonym(s.id); qc.invalidateQueries({ queryKey: ["admin-synonyms"] }); }}>Sil</button>
-            </div>
-          ))}
-          {synonyms && synonyms.length === 0 && <p className="muted">Henüz özel synonym yok (koddaki varsayılanlar geçerli).</p>}
         </div>
-      )}
-    </div>
-  );
-}
+        <div className="ad-foot">© 2026 Satıyo<br />Tüm hakları saklıdır.</div>
+      </aside>
 
-const EVENT_LABELS: Record<string, string> = {
-  app_open: "Uygulama açılış",
-  screen_view: "Ekran görüntüleme",
-  view_listing: "İlan görüntüleme",
-  contact_seller: "Satıcıya mesaj",
-  publish_listing: "İlan yayınlama",
-  search: "Arama",
-  sign_up: "Kayıt",
-  add_favorite: "Favori ekleme",
-};
-function evLabel(name: string): string {
-  return EVENT_LABELS[name] ?? name;
-}
-
-function StatSection({ title, items }: { title: string; items: [string, number | string][] }) {
-  return (
-    <div className="stack" style={{ gap: 10 }}>
-      <h2 style={{ fontSize: 15, margin: 0, color: "var(--text-muted)", fontWeight: 700 }}>{title}</h2>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(110px,1fr))", gap: 10 }}>
-        {items.map(([label, value]) => (
-          <div key={label} className="card" style={{ padding: "var(--space-4)" }}>
-            <div className="muted" style={{ fontSize: 12 }}>{label}</div>
-            <div className="price" style={{ fontSize: 24 }}>{value}</div>
+      {/* Main */}
+      <div className="ad-main">
+        <header className="ad-top">
+          <button className="ad-burger" onClick={() => setOpen(true)}><Icon name="menu" size={17} /></button>
+          <div className="ad-search">
+            <Icon name="search" size={17} />
+            <input placeholder="Ne arıyorsun? (ör. iPhone, koltuk, bisiklet)" aria-label="Ara" />
+            <span className="kbd">⌘K</span>
           </div>
-        ))}
+          <div className="ad-topright">
+            <span className="ad-pill">TR</span>
+            <button className="ad-icobtn" onClick={toggleTheme} aria-label="Tema"><Icon name={dark ? "sun" : "moon"} size={18} /></button>
+            <button className="ad-icobtn" aria-label="Favoriler"><Icon name="heart" size={18} /></button>
+            <button className="ad-icobtn" aria-label="Bildirimler"><Icon name="bell" size={18} />{reportsOpen > 0 && <span className="dot">{reportsOpen > 99 ? "99+" : reportsOpen}</span>}</button>
+            <div className="ad-user">
+              <span className="av">{initials(user.name)}</span>
+              <span className="who"><b>{user.name ?? "Admin"}</b><span>Administrator</span></span>
+              <Icon name="chevron" size={15} />
+            </div>
+          </div>
+        </header>
+
+        <div className="ad-content">
+          {tab === "overview" && <Dashboard stats={stats} onNav={(t) => go(t as Tab)} />}
+          {tab === "users" && <UsersSection />}
+          {tab === "listings" && <ListingsSection />}
+          {tab === "categories" && <CategoriesSection />}
+          {tab === "reports" && <WalletsSection />}
+          {tab === "moderation" && <ModerationSection />}
+          {tab === "system" && <SystemSettings />}
+          {tab === "appsettings" && <AppSettings />}
+          {tab === "orders" && <Placeholder title="Siparişler" />}
+          {tab === "featured" && <Placeholder title="Öne Çıkanlar" />}
+          {tab === "messages" && <Placeholder title="Mesajlar" />}
+          {tab === "other" && <Placeholder title="Diğer Sayfalar" />}
+        </div>
       </div>
     </div>
   );

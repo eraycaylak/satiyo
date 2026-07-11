@@ -1,5 +1,5 @@
 import { useEffect, useState, type ComponentProps } from "react";
-import { Alert, Linking, Modal, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { Alert, KeyboardAvoidingView, Linking, Modal, Platform, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useQuery } from "@tanstack/react-query";
@@ -153,6 +153,7 @@ export default function ProfileScreen() {
         <Row icon="notifications" color="#f59e0b" label="Bildirimler" badge={unread || undefined} onPress={() => router.push("/bildirimler")} />
         <View style={{ height: 1, backgroundColor: t.border, marginLeft: 50 }} />
         <Row icon="star" color="#eab308" label="Değerlendirmelerim" onPress={() => router.push(`/satici/${user.id}`)} />
+        <Row icon="storefront" color="#0ea5e9" label="Mağaza Başvurusu" onPress={() => router.push("/magaza-basvuru")} />
       </View>
 
       {/* Ayarlar */}
@@ -201,6 +202,7 @@ export default function ProfileScreen() {
 
       {/* Profili Düzenle modalı */}
       <Modal visible={editOpen} transparent animationType="slide" onRequestClose={() => setEditOpen(false)}>
+        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
         <Pressable onPress={() => setEditOpen(false)} style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "flex-end" }}>
           <Pressable onPress={(e) => e.stopPropagation()} style={{ backgroundColor: t.surface, borderTopLeftRadius: radius.lg, borderTopRightRadius: radius.lg, padding: space.lg, gap: space.sm }}>
             <Text style={{ fontSize: 18, fontWeight: "800", color: t.text, marginBottom: 4 }}>Profili Düzenle</Text>
@@ -213,10 +215,12 @@ export default function ProfileScreen() {
             <Button title={busy ? "Kaydediliyor…" : "Kaydet"} onPress={save} loading={busy} />
           </Pressable>
         </Pressable>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* Mağaza modalı */}
       <Modal visible={storeOpen} transparent animationType="slide" onRequestClose={() => setStoreOpen(false)}>
+        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
         <Pressable onPress={() => setStoreOpen(false)} style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "flex-end" }}>
           <Pressable onPress={(e) => e.stopPropagation()} style={{ backgroundColor: t.surface, borderTopLeftRadius: radius.lg, borderTopRightRadius: radius.lg, padding: space.lg, gap: space.md }}>
             <Text style={{ fontSize: 18, fontWeight: "800", color: t.text }}><Ionicons name="storefront-outline" size={18} color={t.brand} /> Mağaza Üyeliği</Text>
@@ -227,6 +231,7 @@ export default function ProfileScreen() {
             <Text style={{ color: t.muted, fontSize: 11, textAlign: "center" }}>Geliştirme modunda ödeme simüle edilir.</Text>
           </Pressable>
         </Pressable>
+        </KeyboardAvoidingView>
       </Modal>
     </ScrollView>
   );
