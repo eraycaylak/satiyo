@@ -279,6 +279,25 @@ export class SatiyoClient {
   adminUsers(q?: string) {
     return this.request<AdminUser[]>("/admin/users", q ? { query: { q } } : undefined);
   }
+  adminWallets() {
+    return this.request<{
+      top: { userId: string; name: string; phone: string; balance: number }[];
+      recent: { userId: string; name: string; type: string; amount: number; createdAt: number }[];
+    }>("/admin/wallets");
+  }
+  adminUser(id: string) {
+    return this.request<{
+      id: string; phone: string; name: string; city: string | null; district: string | null;
+      createdAt: number; phoneVerified: boolean; isStore: boolean; storeName: string | null;
+      isAdmin: boolean; banned: boolean; trustScore: number;
+      wallet: { balance: number; history: { type: string; amount: number; createdAt: number }[] };
+      listings: { total: number; active: number; sold: number };
+      stats: { favorites: number; conversations: number; reviews: number; ratingAvg: number | null; reports: number; followers: number; following: number };
+    }>(`/admin/users/${id}`);
+  }
+  adminGrantCredit(id: string, amountKurus: number, reason?: string) {
+    return this.request<{ ok: true; balance: number }>(`/admin/users/${id}/credit`, { method: "POST", body: JSON.stringify({ amountKurus, reason }) });
+  }
   adminSynonyms() {
     return this.request<{ id: string; term: string; aliases: string[] }[]>("/admin/synonyms");
   }

@@ -18,7 +18,8 @@ adminRoutes.get("/stats", async (c) => {
   const first = (sql: string, ...b: unknown[]) => c.env.DB.prepare(sql).bind(...b).first();
   const num = (v: unknown) => Number(v ?? 0);
 
-  const [u, l, act, act24, conv, msg, fav, rev, rep, pay] = await Promise.all([
+  const dayStr = new Date().toISOString().slice(0, 10);
+  const [u, l, act, act24, conv, msg, fav, rev, rep, pay, follows, wLedger, wBal, ai] = await Promise.all([
     first(
       `SELECT COUNT(*) total, SUM(phone_verified=1) verified, SUM(is_store=1) stores,
               SUM(banned=1) banned, SUM(is_admin=1) admins,
@@ -35,6 +36,11 @@ adminRoutes.get("/stats", async (c) => {
     first(`SELECT COUNT(*) n FROM reviews`),
     first(`SELECT SUM(status='open') open, COUNT(*) total FROM reports`),
     first(`SELECT COALESCE(SUM(amount),0) sum, COUNT(*) cnt FROM payments WHERE status='paid'`),
+    first(`SELECT COUNT(*) n FROM follows`),
+    first(`SELECT COALESCE(SUM(CASE WHEN amount_minor>0 THEN amount_minor END),0) granted,
+                  COALESCE(SUM(CASE WHEN amount_minor<0 THEN -amount_minor END),0) spent FROM credit_ledger`),
+    first(`SELECT COALESCE(SUM(balance_minor),0) outstanding, COUNT(*) wallets FROM credit_wallets`),
+    first(`SELECT COALESCE(SUM(count),0) total, COALESCE(SUM(CASE WHEN day=?1 THEN count END),0) today FROM ai_usage`, dayStr),
   ]);
 
   const evTotal = await first(`SELECT SUM(created_at>=?1) c24, COUNT(*) c7 FROM events WHERE created_at>=?2`, d1, d7);
@@ -66,7 +72,90 @@ adminRoutes.get("/stats", async (c) => {
       reviews: num(rev?.n), reportsOpen: num(rep?.open), reportsTotal: num(rep?.total),
     },
     revenue: { totalKurus: num(pay?.sum), payments: num(pay?.cnt) },
+    engagementExtra: { follows: num(follows?.n) },
+    wallet: {
+      grantedKurus: num(wLedger?.granted), spentKurus: num(wLedger?.spent),
+      outstandingKurus: num(wBal?.outstanding), wallets: num(wBal?.wallets),
+    },
+    ai: { suggestionsTotal: num(ai?.total), suggestionsToday: num(ai?.today) },
   });
+});
+
+// --- Cüzdanlar: en yüksek bakiyeler + toplam + son hareketler ---
+adminRoutes.get("/wallets", async (c) => {
+  const top = await c.env.DB.prepare(
+    `SELECT w.user_id, w.balance_minor, u.name, u.phone
+     FROM credit_wallets w JOIN users u ON u.id = w.user_id
+     WHERE w.balance_minor > 0 ORDER BY w.balance_minor DESC LIMIT 100`,
+  ).all();
+  const recent = await c.env.DB.prepare(
+    `SELECT l.user_id, l.txn_type, l.amount_minor, l.created_at, u.name
+     FROM credit_ledger l JOIN users u ON u.id = l.user_id
+     ORDER BY l.created_at DESC LIMIT 100`,
+  ).all();
+  return c.json({
+    top: (top.results as Record<string, unknown>[]).map((r) => ({
+      userId: r.user_id, name: r.name, phone: r.phone, balance: Number(r.balance_minor),
+    })),
+    recent: (recent.results as Record<string, unknown>[]).map((r) => ({
+      userId: r.user_id, name: r.name, type: r.txn_type, amount: Number(r.amount_minor), createdAt: Number(r.created_at),
+    })),
+  });
+});
+
+// --- Kullanıcı detayı: profil + cüzdan + ilan/etkileşim/şikayet özeti ---
+adminRoutes.get("/users/:id", async (c) => {
+  const id = c.req.param("id");
+  const u = await c.env.DB.prepare(`SELECT * FROM users WHERE id = ?`).bind(id).first();
+  if (!u) notFound("Kullanıcı bulunamadı");
+  const first = (sql: string, ...b: unknown[]) => c.env.DB.prepare(sql).bind(...b).first();
+  const numv = (v: unknown) => Number(v ?? 0);
+  const [bal, ledger, lst, favs, convs, reviews, reps, follows] = await Promise.all([
+    first(`SELECT balance_minor b FROM credit_wallets WHERE user_id=?`, id),
+    c.env.DB.prepare(`SELECT txn_type, amount_minor, created_at FROM credit_ledger WHERE user_id=? ORDER BY created_at DESC LIMIT 30`).bind(id).all(),
+    first(`SELECT COUNT(*) t, SUM(status='active') a, SUM(status='sold') s FROM listings WHERE seller_id=?`, id),
+    first(`SELECT COUNT(*) n FROM favorites WHERE user_id=?`, id),
+    first(`SELECT COUNT(*) n FROM conversations WHERE buyer_id=?1 OR seller_id=?1`, id),
+    first(`SELECT COUNT(*) n, AVG(rating) avg FROM reviews WHERE reviewed_id=?`, id),
+    first(`SELECT COUNT(*) n FROM reports WHERE target_type='user' AND target_id=?`, id),
+    first(`SELECT (SELECT COUNT(*) FROM follows WHERE following_id=?1) followers, (SELECT COUNT(*) FROM follows WHERE follower_id=?1) following`, id),
+  ]);
+  const ur = u as Record<string, unknown>;
+  return c.json({
+    id: ur.id, phone: ur.phone, name: ur.name, city: ur.city, district: ur.district,
+    createdAt: ur.created_at, phoneVerified: Boolean(ur.phone_verified), isStore: Boolean(ur.is_store),
+    storeName: ur.store_name, isAdmin: Boolean(ur.is_admin), banned: Boolean(ur.banned), trustScore: numv(ur.trust_score),
+    wallet: {
+      balance: numv(bal?.b),
+      history: (ledger.results as Record<string, unknown>[]).map((r) => ({ type: r.txn_type, amount: Number(r.amount_minor), createdAt: Number(r.created_at) })),
+    },
+    listings: { total: numv(lst?.t), active: numv(lst?.a), sold: numv(lst?.s) },
+    stats: { favorites: numv(favs?.n), conversations: numv(convs?.n), reviews: numv(reviews?.n), ratingAvg: reviews?.avg ? Number(reviews.avg) : null, reports: numv(reps?.n), followers: numv(follows?.followers), following: numv(follows?.following) },
+  });
+});
+
+// --- Manuel kredi ver/düş (admin destek aracı) ---
+adminRoutes.post("/users/:id/credit", async (c) => {
+  const id = c.req.param("id");
+  const body = (await c.req.json().catch(() => ({}))) as { amountKurus?: number; reason?: string };
+  const amount = Math.round(Number(body.amountKurus ?? 0));
+  if (!amount) badRequest("amountKurus gerekli (kuruş, + ekle / - düş)");
+  const exists = await c.env.DB.prepare(`SELECT 1 FROM users WHERE id = ?`).bind(id).first();
+  if (!exists) notFound("Kullanıcı bulunamadı");
+  const admin = c.get("user");
+  const key = `adjust:${id}:${now()}`;
+  await c.env.DB.batch([
+    c.env.DB.prepare(
+      `INSERT INTO credit_ledger (id, idempotency_key, user_id, txn_type, amount_minor, ref_type, ref_id, created_at)
+       VALUES (?,?,?, 'adjustment', ?, 'admin', ?, ?)`,
+    ).bind(newId("cl"), key, id, amount, admin.id, now()),
+    c.env.DB.prepare(
+      `INSERT INTO credit_wallets (user_id, balance_minor, updated_at) VALUES (?, MAX(0, ?), ?)
+       ON CONFLICT(user_id) DO UPDATE SET balance_minor = MAX(0, balance_minor + ?), updated_at = ?`,
+    ).bind(id, amount, now(), amount, now()),
+  ]);
+  const bal = await c.env.DB.prepare(`SELECT balance_minor b FROM credit_wallets WHERE user_id=?`).bind(id).first();
+  return c.json({ ok: true as const, balance: Number(bal?.b ?? 0) });
 });
 
 // --- Kullanıcı listesi (son görülme + ilan sayısı) ---
