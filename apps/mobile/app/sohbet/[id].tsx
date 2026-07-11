@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Alert, FlatList, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { Alert, FlatList, Image, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useQueryClient } from "@tanstack/react-query";
@@ -101,6 +101,23 @@ export default function ChatScreen() {
 
   return (
     <KeyboardAvoidingView style={{ flex: 1, backgroundColor: t.bg }} behavior={Platform.OS === "ios" ? "padding" : undefined} keyboardVerticalOffset={90}>
+      {conv?.otherUser && reviewedId ? (
+        <Pressable onPress={() => router.push(`/satici/${reviewedId}`)} style={{ flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: space.lg, paddingTop: 8 }}>
+          <View style={{ width: 38, height: 38, borderRadius: 999, overflow: "hidden", backgroundColor: t.brand + "22", alignItems: "center", justifyContent: "center" }}>
+            {conv.otherUser.avatarUrl
+              ? <Image source={{ uri: conv.otherUser.avatarUrl }} style={{ width: 38, height: 38 }} />
+              : <Text style={{ color: t.brand, fontWeight: "800", fontSize: 16 }}>{(conv.otherUser.storeName ?? conv.otherUser.name ?? "?").charAt(0).toUpperCase()}</Text>}
+          </View>
+          <View style={{ flex: 1 }}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+              <Text numberOfLines={1} style={{ fontWeight: "700", fontSize: 15, color: t.text }}>{conv.otherUser.storeName ?? conv.otherUser.name}</Text>
+              {conv.otherUser.isStore ? <View style={{ backgroundColor: t.brand + "18", borderRadius: 999, paddingHorizontal: 6, paddingVertical: 1 }}><Text style={{ color: t.brand, fontSize: 10, fontWeight: "700" }}>Mağaza</Text></View> : null}
+            </View>
+            <Text style={{ fontSize: 12, color: t.muted }}>{conv.otherUser.ratingCount ? `⭐ ${conv.otherUser.ratingAvg?.toFixed(1)} (${conv.otherUser.ratingCount})` : "Profili gör →"}</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color={t.muted} />
+        </Pressable>
+      ) : null}
       <View style={{ paddingHorizontal: space.lg, paddingVertical: 6, flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
         <View style={{ flexDirection: "row", gap: space.md, alignItems: "center" }}>
           {conv ? <Pressable onPress={() => setReviewOpen(true)} style={{ flexDirection: "row", alignItems: "center", gap: 4 }}><Ionicons name="star" size={15} color={t.brand} /><Text style={{ color: t.brand, fontWeight: "600" }}>Değerlendir</Text></Pressable> : null}

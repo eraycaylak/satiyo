@@ -24,8 +24,13 @@ export default function ConversationsPage() {
         <div className="stack" style={{ gap: 8 }}>
           {data.map((cv) => (
             <Link key={cv.id} href={`/mesajlar/${cv.id}`} className="card row" style={{ padding: "var(--space-3)", gap: "var(--space-3)" }}>
-              <div style={{ width: 56, height: 56, borderRadius: "var(--radius)", overflow: "hidden", background: "var(--surface-2)", flexShrink: 0 }}>
-                {cv.listing?.coverUrl ? <img src={cv.listing.coverUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <div style={{ display: "grid", placeItems: "center", height: "100%", fontSize: 22, opacity: .4 }}>🖼️</div>}
+              <div style={{ position: "relative", flexShrink: 0 }}>
+                <div style={{ width: 56, height: 56, borderRadius: "var(--radius)", overflow: "hidden", background: "var(--surface-2)" }}>
+                  {cv.listing?.coverUrl ? <img src={cv.listing.coverUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <div style={{ display: "grid", placeItems: "center", height: "100%", fontSize: 22, opacity: .4 }}>🖼️</div>}
+                </div>
+                <div style={{ position: "absolute", right: -5, bottom: -5, width: 26, height: 26, borderRadius: 999, overflow: "hidden", background: "var(--brand-50)", color: "var(--brand-600)", border: "2px solid var(--surface)", display: "grid", placeItems: "center", fontSize: 11, fontWeight: 800 }}>
+                  {cv.otherUser?.avatarUrl ? <img src={cv.otherUser.avatarUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : (cv.otherUser?.name ?? "?").charAt(0).toUpperCase()}
+                </div>
               </div>
               <div className="grow stack" style={{ gap: 2, minWidth: 0 }}>
                 <div className="spread">

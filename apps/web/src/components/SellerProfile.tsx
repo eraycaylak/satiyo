@@ -11,20 +11,44 @@ export function SellerProfile({ id }: { id: string }) {
 
   return (
     <div className="stack" style={{ gap: "var(--space-5)" }}>
-      <div className="card row" style={{ padding: "var(--space-5)", gap: "var(--space-4)" }}>
-        <div style={{ width: 64, height: 64, borderRadius: 999, background: "var(--brand-50)", color: "var(--brand-600)", display: "grid", placeItems: "center", fontWeight: 800, fontSize: 26, flexShrink: 0 }}>
-          {(seller?.storeName ?? seller?.name ?? "?").charAt(0).toUpperCase()}
-        </div>
-        <div className="grow stack" style={{ gap: 4 }}>
-          <div className="row" style={{ gap: 8 }}>
-            <h1 style={{ margin: 0, fontSize: 22 }}>{seller?.storeName ?? seller?.name ?? "…"}</h1>
-            {seller?.isStore && <span className="badge badge-brand">Mağaza</span>}
+      <div className="card stack" style={{ padding: "var(--space-5)", gap: "var(--space-4)" }}>
+        <div className="row" style={{ gap: "var(--space-4)" }}>
+          <div className="pf-av">
+            {seller?.avatarUrl
+              ? /* eslint-disable-next-line @next/next/no-img-element */ <img src={seller.avatarUrl} alt={seller.name} />
+              : (seller?.storeName ?? seller?.name ?? "?").charAt(0).toUpperCase()}
           </div>
-          <div className="row muted" style={{ fontSize: 13, gap: 10, flexWrap: "wrap" }}>
-            {seller?.ratingCount ? <span>⭐ {seller.ratingAvg?.toFixed(1)} ({seller.ratingCount} değerlendirme)</span> : <span>Henüz puan yok</span>}
-            {seller && <span>Üyelik {timeAgo(seller.createdAt)}</span>}
-            {seller?.phoneVerified && <span className="badge badge-success">✓ Telefon</span>}
-            {seller?.identityVerified && <span className="badge badge-success">✓ Kimlik</span>}
+          <div className="grow stack" style={{ gap: 6 }}>
+            <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+              <h1 style={{ margin: 0, fontSize: 22, letterSpacing: "-.02em" }}>{seller?.storeName ?? seller?.name ?? "…"}</h1>
+              {seller?.isStore && <span className="badge badge-brand">Mağaza</span>}
+            </div>
+            <div className="pf-badges">
+              {seller?.phoneVerified && <span className="pf-badge ok">✓ Telefon doğrulandı</span>}
+              {seller?.identityVerified && <span className="pf-badge ok">✓ Kimlik doğrulandı</span>}
+              {!!seller?.ratingCount && (seller.ratingAvg ?? 0) >= 4.5 && seller.ratingCount >= 3 && <span className="pf-badge gold">★ Güvenilir satıcı</span>}
+              {seller?.responseTimeAvg != null && <span className="pf-badge">⚡ Hızlı yanıt</span>}
+              {!!seller?.followerCount && <span className="pf-badge">👤 {seller.followerCount} takipçi</span>}
+            </div>
+          </div>
+        </div>
+
+        <div className="pf-stats">
+          <div className="pf-stat">
+            <span className="v">{seller && (seller.trustScore ?? 0) > 0 ? Math.min(100, seller.trustScore) : "—"}</span>
+            <span className="k">🛡️ Güven puanı</span>
+          </div>
+          <div className="pf-stat">
+            <span className="v">{seller?.salesCount ?? 0}</span>
+            <span className="k">🤝 Satış</span>
+          </div>
+          <div className="pf-stat">
+            <span className="v">{seller?.ratingCount ? `⭐${seller.ratingAvg?.toFixed(1)}` : "—"}</span>
+            <span className="k">{seller?.ratingCount ? `${seller.ratingCount} değerlendirme` : "Puan yok"}</span>
+          </div>
+          <div className="pf-stat">
+            <span className="v" style={{ fontSize: 15 }}>{seller ? timeAgo(seller.createdAt) : "…"}</span>
+            <span className="k">📅 Üyelik</span>
           </div>
         </div>
       </div>

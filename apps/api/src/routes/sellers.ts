@@ -17,10 +17,11 @@ sellerRoutes.get("/:id", optionalAuth, async (c) => {
   ).bind(id).first();
   if (!row) notFound("Satıcı bulunamadı");
   const fc = await c.env.DB.prepare(`SELECT COUNT(*) AS n FROM follows WHERE following_id = ?`).bind(id).first();
+  const sc = await c.env.DB.prepare(`SELECT COUNT(*) AS n FROM listings WHERE seller_id = ? AND status = 'sold'`).bind(id).first();
   const isFollowing = viewer
     ? !!(await c.env.DB.prepare(`SELECT 1 FROM follows WHERE follower_id = ? AND following_id = ?`).bind(viewer.id, id).first())
     : false;
-  return c.json({ ...rowToSeller(row as Record<string, unknown>), followerCount: Number(fc?.n ?? 0), isFollowing });
+  return c.json({ ...rowToSeller(row as Record<string, unknown>), followerCount: Number(fc?.n ?? 0), salesCount: Number(sc?.n ?? 0), isFollowing });
 });
 
 // Satıcıyı takip et / bırak

@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import type { Conversation, Message } from "@satiyo/shared";
 import { api, tokenStore } from "@/lib/client";
 import { useAuth } from "@/lib/auth";
@@ -92,20 +93,34 @@ export function Chat({ conversationId }: { conversationId: string }) {
 
   return (
     <div className="stack" style={{ maxWidth: 640, margin: "0 auto", height: "calc(100vh - var(--header-h) - 120px)" }}>
-      <div className="spread" style={{ paddingBottom: 8 }}>
-        <button className="btn btn-ghost" onClick={() => router.push("/mesajlar")}>← Mesajlar</button>
-        <div className="row" style={{ gap: 8 }}>
-          {conv && <button className="btn btn-ghost" onClick={() => { setReviewOpen(true); setReviewMsg(null); }}>⭐ Değerlendir</button>}
-          {(() => {
-            const p = presenceText(conv?.otherUser?.lastSeen);
-            if (p) {
-              const online = p.startsWith("●");
-              return <span className="badge" style={{ background: online ? "var(--brand-50)" : "var(--surface-2)", color: online ? "var(--brand-600)" : "var(--text-muted)" }}>{p}</span>;
-            }
-            if (!connected) return <span className="badge" style={{ background: "var(--surface-2)", color: "var(--text-muted)" }}>bağlanıyor…</span>;
-            return null;
-          })()}
-        </div>
+      <div className="row" style={{ gap: 8, paddingBottom: 8 }}>
+        <button className="btn btn-ghost" style={{ padding: "9px 12px" }} onClick={() => router.push("/mesajlar")} aria-label="Geri">←</button>
+        {conv?.otherUser ? (
+          <Link href={`/satici/${conv.otherUser.id}`} className="chat-peer grow" title="Profili gör">
+            <span className="chat-peer-av">
+              {conv.otherUser.avatarUrl
+                ? /* eslint-disable-next-line @next/next/no-img-element */ <img src={conv.otherUser.avatarUrl} alt="" />
+                : (conv.otherUser.storeName ?? conv.otherUser.name ?? "?").charAt(0).toUpperCase()}
+            </span>
+            <span className="chat-peer-body">
+              <span className="chat-peer-name">
+                {conv.otherUser.storeName ?? conv.otherUser.name}
+                {conv.otherUser.isStore && <span className="badge badge-brand" style={{ fontSize: 10, padding: "1px 6px" }}>Mağaza</span>}
+                <span className="chat-peer-chev">›</span>
+              </span>
+              <span className="chat-peer-meta">
+                {(() => {
+                  const p = presenceText(conv.otherUser.lastSeen);
+                  if (p) return <span style={{ color: p.startsWith("●") ? "var(--success)" : "var(--text-muted)" }}>{p}</span>;
+                  if (!connected) return <span>bağlanıyor…</span>;
+                  return <span>Profili gör</span>;
+                })()}
+                {!!conv.otherUser.ratingCount && <span>· ⭐ {conv.otherUser.ratingAvg?.toFixed(1)} ({conv.otherUser.ratingCount})</span>}
+              </span>
+            </span>
+          </Link>
+        ) : <div className="grow" />}
+        {conv && <button className="btn btn-ghost" style={{ padding: "9px 12px", whiteSpace: "nowrap" }} onClick={() => { setReviewOpen(true); setReviewMsg(null); }}>⭐ Değerlendir</button>}
       </div>
 
       <div className="card stack" style={{ flex: 1, overflowY: "auto", padding: "var(--space-4)", gap: 10 }}>

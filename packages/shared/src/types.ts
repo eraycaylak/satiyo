@@ -50,6 +50,7 @@ export interface PublicSeller {
   ratingCount?: number;
   followerCount?: number;
   isFollowing?: boolean;
+  salesCount?: number;
   lastSeen?: number | null;
 }
 
