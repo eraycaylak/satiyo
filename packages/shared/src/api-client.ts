@@ -279,6 +279,9 @@ export class SatiyoClient {
   adminUsers(q?: string) {
     return this.request<AdminUser[]>("/admin/users", q ? { query: { q } } : undefined);
   }
+  adminListings(status?: string, q?: string) {
+    return this.request<{ items: Listing[] }>("/admin/listings", { query: { ...(status ? { status } : {}), ...(q ? { q } : {}) } });
+  }
   adminWallets() {
     return this.request<{
       top: { userId: string; name: string; phone: string; balance: number }[];

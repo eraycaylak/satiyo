@@ -4,6 +4,7 @@ import { badRequest, notFound } from "../lib/http.js";
 import { newId, now } from "../lib/id.js";
 import { foldTr } from "@satiyo/shared";
 import { getSetting, setSetting, getGeminiKey } from "../lib/settings.js";
+import { hydrateListings, rowToListing } from "../lib/db.js";
 import { requireAuth } from "../middleware/auth.js";
 import { requireAdmin } from "../middleware/admin.js";
 
@@ -102,6 +103,21 @@ adminRoutes.get("/wallets", async (c) => {
       userId: r.user_id, name: r.name, type: r.txn_type, amount: Number(r.amount_minor), createdAt: Number(r.created_at),
     })),
   });
+});
+
+// --- İlanlar: tüm durumlar + satıcı (kim ne koymuş) + görsel, filtreli ---
+adminRoutes.get("/listings", async (c) => {
+  const status = (c.req.query("status") ?? "").trim();
+  const q = (c.req.query("q") ?? "").trim();
+  const cond: string[] = []; const b: unknown[] = [];
+  if (status) { cond.push("status = ?"); b.push(status); }
+  if (q) { cond.push("title LIKE ?"); b.push(`%${q}%`); }
+  const rows = await c.env.DB.prepare(
+    `SELECT * FROM listings ${cond.length ? `WHERE ${cond.join(" AND ")}` : ""} ORDER BY created_at DESC LIMIT 60`,
+  ).bind(...b).all();
+  let items = (rows.results as Record<string, unknown>[]).map(rowToListing);
+  items = await hydrateListings(c.env.DB, items, { withSeller: true });
+  return c.json({ items });
 });
 
 // --- Kullanıcı detayı: profil + cüzdan + ilan/etkileşim/şikayet özeti ---
