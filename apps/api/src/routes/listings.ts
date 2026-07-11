@@ -19,6 +19,7 @@ import { hydrateListings, rowToListing, rowToSeller } from "../lib/db.js";
 import { notify } from "../lib/notify.js";
 import { areBlocked } from "../lib/blocks.js";
 import { inspectListing } from "../lib/safety.js";
+import { moderateListingAI } from "../lib/moderation.js";
 import { listingMatchesQuery, type SavedQuery } from "../lib/match.js";
 import { optionalAuth, requireAuth } from "../middleware/auth.js";
 
@@ -267,6 +268,16 @@ listingRoutes.post("/", requireAuth, async (c) => {
       attributesText: Object.values(input.attributes).join(" "),
     });
     await notifyFollowers(c.env.DB, id, user.id, input.title);
+  }
+
+  // AI moderasyon — arka planda risk skoru (yanıtı bloklamaz); yalnız yayındaki ilanlar
+  if (input.status === "active") {
+    c.executionCtx?.waitUntil(
+      moderateListingAI(c.env, c.env.DB, {
+        id, title: input.title, description: input.description, price: input.price,
+        categoryName: getCategory(input.categoryId)?.name,
+      }),
+    );
   }
 
   const row = await c.env.DB.prepare(`SELECT * FROM listings WHERE id = ?`).bind(id).first();

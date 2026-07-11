@@ -83,9 +83,17 @@ export function rowToListing(r: Record<string, unknown>): Listing {
     soldTo: (r.sold_to as string) ?? null,
     soldAt: (r.sold_at as number) ?? null,
     soldChannel: (r.sold_channel as Listing["soldChannel"]) ?? null,
+    riskScore: r.risk_score != null ? Number(r.risk_score) : null,
+    riskFlag: !!r.risk_flag,
+    riskCategory: (r.risk_category as string) ?? null,
+    riskReasons: r.risk_reasons ? safeParseArray(r.risk_reasons as string) : [],
     images: [],
     attributes: {},
   };
+}
+
+function safeParseArray(s: string): string[] {
+  try { const v = JSON.parse(s); return Array.isArray(v) ? v.map(String) : []; } catch { return []; }
 }
 
 export function rowToMessage(r: Record<string, unknown>): Message {

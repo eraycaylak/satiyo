@@ -6,6 +6,7 @@ import { adminConfigSchema, adminUpdateListingSchema, foldTr, getCategory, isVal
 import { getSetting, setSetting, getGeminiKey } from "../lib/settings.js";
 import { hydrateListings, rowToListing } from "../lib/db.js";
 import { notify } from "../lib/notify.js";
+import { moderateListingAI } from "../lib/moderation.js";
 import { requireAuth } from "../middleware/auth.js";
 import { requireAdmin } from "../middleware/admin.js";
 
@@ -303,6 +304,36 @@ adminRoutes.patch("/listings/:id", async (c) => {
   const updated = await c.env.DB.prepare(`SELECT * FROM listings WHERE id = ?`).bind(id).first();
   const [listing] = await hydrateListings(c.env.DB, [rowToListing(updated as Record<string, unknown>)], { withSeller: true });
   return c.json(listing);
+});
+
+// --- AI Moderasyon: riskli ilan kuyruğu + risk temizle + manuel tara ---
+adminRoutes.get("/moderation-queue", async (c) => {
+  const rows = await c.env.DB.prepare(
+    `SELECT * FROM listings WHERE risk_flag = 1 AND status != 'removed' ORDER BY risk_score DESC, created_at DESC LIMIT 60`,
+  ).all();
+  let items = (rows.results as Record<string, unknown>[]).map(rowToListing);
+  items = await hydrateListings(c.env.DB, items, { withSeller: true });
+  return c.json({ items });
+});
+adminRoutes.post("/listings/:id/clear-risk", async (c) => {
+  await c.env.DB.prepare(`UPDATE listings SET risk_flag = 0 WHERE id = ?`).bind(c.req.param("id")).run();
+  return c.json({ ok: true as const });
+});
+adminRoutes.post("/listings/:id/moderate", async (c) => {
+  const id = c.req.param("id");
+  const row = await c.env.DB.prepare(`SELECT id, title, description, price, category_id FROM listings WHERE id = ?`).bind(id).first();
+  if (!row) notFound("İlan bulunamadı");
+  await moderateListingAI(c.env, c.env.DB, {
+    id, title: String(row!.title), description: String(row!.description ?? ""),
+    price: Number(row!.price), categoryName: getCategory(String(row!.category_id))?.name,
+  });
+  const updated = await c.env.DB.prepare(`SELECT risk_score, risk_flag, risk_category, risk_reasons FROM listings WHERE id = ?`).bind(id).first();
+  return c.json({
+    ok: true as const,
+    riskScore: updated?.risk_score != null ? Number(updated.risk_score) : null,
+    riskFlag: !!updated?.risk_flag,
+    riskCategory: (updated?.risk_category as string) ?? null,
+  });
 });
 
 // --- C2: Zorunlu güncelleme config (oku/yaz) ---

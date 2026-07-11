@@ -87,6 +87,10 @@ export interface Listing {
   soldTo?: string | null;
   soldAt?: number | null;
   soldChannel?: "satiyo" | "disarida" | null;
+  riskScore?: number | null;
+  riskFlag?: boolean;
+  riskCategory?: string | null;
+  riskReasons?: string[];
 }
 
 export interface Conversation {

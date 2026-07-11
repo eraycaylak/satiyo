@@ -11,6 +11,7 @@ import { radius, space, useTheme } from "@/lib/theme";
 import { ListingCard } from "@/components/ListingCard";
 import { ListingsMap } from "@/components/ListingsMap";
 import { CityPicker } from "@/components/CityPicker";
+import { detectLocation } from "@/lib/location";
 import { Badge, Empty, Loading } from "@/components/ui";
 
 const GAP = space.md;
@@ -45,15 +46,29 @@ export default function ExploreScreen() {
   const [sort, setSort] = useState<SortOption>("relevance");
   const [view, setView] = useState<"list" | "map">("list");
   const [city, setCity] = useState<string>(""); // "" = tüm Türkiye
+  const [gps, setGps] = useState<{ lat: number; lng: number } | null>(null);
+  const [locating, setLocating] = useState(false);
 
   // Varsayılan: kullanıcının şehri (yerel odak). Kullanıcı "Tüm TR" ile genişletebilir.
   useEffect(() => { if (!city && user?.city) setCity(user.city); }, [user]);
 
-  const coords = sort === "nearest" ? cityToCoords(city || user?.city) : null;
+  async function useMyLocation() {
+    setLocating(true);
+    try {
+      const loc = await detectLocation();
+      if (!loc) { Alert.alert("Konum", "Konum izni verilmedi veya alınamadı. Ayarlardan izin verebilirsin."); return; }
+      setGps(loc.coords);
+      if (loc.province) setCity(loc.province);
+      setSort("nearest");
+    } finally { setLocating(false); }
+  }
+
+  const cityCoords = cityToCoords(city || user?.city);
+  const near = sort === "nearest" ? (gps ?? (cityCoords ? { lat: cityCoords[0], lng: cityCoords[1] } : null)) : null;
   const filters: SearchFilters = {
     q: submitted || undefined, categoryId, sort, pageSize: 24,
     city: city || undefined,
-    ...(coords ? { lat: coords[0], lng: coords[1] } : {}),
+    ...(near ? { lat: near.lat, lng: near.lng } : {}),
   };
   const { data, isLoading, isError, refetch, isFetching } = useQuery({
     queryKey: ["listings", filters],
@@ -82,7 +97,9 @@ export default function ExploreScreen() {
     <View style={{ flex: 1, backgroundColor: t.bg }}>
       <View style={{ padding: space.lg, paddingBottom: space.sm, gap: space.md }}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-          <Ionicons name="location" size={18} color={t.brand} />
+          <Pressable onPress={useMyLocation} hitSlop={6} style={{ width: 40, height: 40, borderRadius: radius.md, borderWidth: 1, borderColor: t.brand, alignItems: "center", justifyContent: "center", backgroundColor: t.brandSoft }}>
+            <Ionicons name={locating ? "sync" : "navigate"} size={18} color={t.brand} />
+          </Pressable>
           <View style={{ flex: 1 }}><CityPicker value={city} onSelect={setCity} placeholder="Tüm Türkiye" /></View>
           {city ? (
             <Pressable onPress={() => setCity("")} hitSlop={8} style={{ borderWidth: 1, borderColor: t.brand, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 9 }}>

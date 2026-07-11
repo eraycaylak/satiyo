@@ -20,11 +20,14 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.satiyo.app",
-      "buildNumber": "14",
-      "associatedDomains": ["applinks:satiyo.app"],
+      "buildNumber": "15",
+      "associatedDomains": [
+        "applinks:satiyo.app"
+      ],
       "infoPlist": {
         "NSPhotoLibraryUsageDescription": "İlan fotoğrafı seçmek için galerinize erişim gerekir.",
         "NSCameraUsageDescription": "İlan fotoğrafı çekmek için kameranıza erişim gerekir.",
+        "NSLocationWhenInUseUsageDescription": "Yakınındaki ilanları göstermek ve ilan verirken konumunu otomatik doldurmak için konumuna erişiriz.",
         "ITSAppUsesNonExemptEncryption": false
       }
     },
@@ -37,7 +40,9 @@
       },
       "permissions": [
         "CAMERA",
-        "READ_MEDIA_IMAGES"
+        "READ_MEDIA_IMAGES",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION"
       ],
       "blockedPermissions": [
         "android.permission.RECORD_AUDIO"
@@ -47,15 +52,32 @@
           "action": "VIEW",
           "autoVerify": true,
           "data": [
-            { "scheme": "https", "host": "satiyo.app", "pathPrefix": "/ilan" },
-            { "scheme": "https", "host": "satiyo.app", "pathPrefix": "/satici" }
+            {
+              "scheme": "https",
+              "host": "satiyo.app",
+              "pathPrefix": "/ilan"
+            },
+            {
+              "scheme": "https",
+              "host": "satiyo.app",
+              "pathPrefix": "/satici"
+            }
           ],
-          "category": ["BROWSABLE", "DEFAULT"]
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
         }
       ]
     },
     "plugins": [
       "expo-router",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Yakınındaki ilanları göstermek ve ilan verirken konumunu otomatik doldurmak için konumuna erişiriz."
+        }
+      ],
       [
         "expo-build-properties",
         {

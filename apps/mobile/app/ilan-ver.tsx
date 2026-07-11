@@ -11,6 +11,7 @@ import { radius, space, useTheme } from "@/lib/theme";
 import { Badge, Button, Loading } from "@/components/ui";
 import { CityPicker } from "@/components/CityPicker";
 import { CategoryPicker } from "@/components/CategoryPicker";
+import { detectLocation } from "@/lib/location";
 
 export default function CreateListingScreen() {
   const t = useTheme();
@@ -28,6 +29,17 @@ export default function CreateListingScreen() {
   const [district, setDistrict] = useState("");
   const [description, setDescription] = useState("");
   const [busy, setBusy] = useState(false);
+  const [locating, setLocating] = useState(false);
+
+  async function fillLocation() {
+    setLocating(true);
+    try {
+      const loc = await detectLocation();
+      if (!loc) { Alert.alert("Konum", "Konum izni verilmedi veya alınamadı."); return; }
+      if (loc.province) setCity(loc.province);
+      if (loc.district) setDistrict(loc.district);
+    } finally { setLocating(false); }
+  }
 
   useEffect(() => {
     if (!loading && !user) router.replace("/giris");
@@ -157,6 +169,12 @@ export default function CreateListingScreen() {
         <TextInput value={price} onChangeText={setPrice} keyboardType="numeric" placeholder="Fiyat (₺)" placeholderTextColor={t.muted} style={input} />
       )}
 
+      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+        <Text style={{ fontWeight: "700", color: t.text }}>Konum</Text>
+        <Pressable onPress={fillLocation} hitSlop={6} style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+          <Text style={{ color: t.brand, fontWeight: "600", fontSize: 13 }}>{locating ? "Alınıyor…" : "📍 Konumumu al"}</Text>
+        </Pressable>
+      </View>
       <View style={{ flexDirection: "row", gap: 8 }}>
         <View style={{ flex: 1 }}><CityPicker value={city} onSelect={setCity} placeholder="Şehir" /></View>
         <TextInput value={district} onChangeText={setDistrict} placeholder="Semt" placeholderTextColor={t.muted} style={[input, { flex: 1 }]} />

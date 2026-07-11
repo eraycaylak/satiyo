@@ -350,6 +350,16 @@ export class SatiyoClient {
   adminUpdateListing(id: string, input: unknown) {
     return this.request<Listing>(`/admin/listings/${id}`, { method: "PATCH", body: JSON.stringify(input) });
   }
+  // AI Moderasyon
+  adminModerationQueue() {
+    return this.request<{ items: Listing[] }>("/admin/moderation-queue");
+  }
+  adminClearRisk(id: string) {
+    return this.request<{ ok: true }>(`/admin/listings/${id}/clear-risk`, { method: "POST" });
+  }
+  adminModerateListing(id: string) {
+    return this.request<{ ok: true; riskScore: number | null; riskFlag: boolean; riskCategory: string | null }>(`/admin/listings/${id}/moderate`, { method: "POST" });
+  }
   // C2 — zorunlu güncelleme config yönetimi
   adminConfig() {
     return this.request<Record<string, string>>("/admin/config");
