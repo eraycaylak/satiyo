@@ -5,6 +5,7 @@ import * as ImagePicker from "expo-image-picker";
 import { getAttributeSchema, type PriceType } from "@satiyo/shared";
 import { api } from "@/lib/client";
 import { track } from "@/lib/analytics";
+import { maybeAskReview } from "@/lib/review";
 import { useAuth } from "@/lib/auth";
 import { uploadImage, type UploadedImage } from "@/lib/upload";
 import { radius, space, useTheme } from "@/lib/theme";
@@ -95,6 +96,7 @@ export default function CreateListingScreen() {
         attributes, imageIds: images.map((i) => i.imageId), status: "active",
       });
       track("publish_listing", { id: l.id, category: categoryId, priceType });
+      void maybeAskReview(); // ilan yayınlama = pozitif an → uygunsa puanlama iste
       setBusy(false);
       router.dismissAll?.();
       // Modal kapandıktan SONRA (aynı tick'te değil) detaya git — yarış/​takılma önlenir.
