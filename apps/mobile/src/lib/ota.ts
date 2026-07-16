@@ -34,6 +34,10 @@ export function useOtaUpdates(): void {
       }
     }
 
+    // Soğuk açılışta da kontrol et — yeni güncelleme birkaç saniyede inerse
+    // hemen uygula (yoksa kullanıcı eski arayüzü bir oturum boyunca görüyordu).
+    void checkAndApply();
+
     const sub = AppState.addEventListener("change", (s: AppStateStatus) => {
       if (s === "active") void checkAndApply();
     });
