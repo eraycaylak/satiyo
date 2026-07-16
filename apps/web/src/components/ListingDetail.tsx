@@ -123,7 +123,20 @@ export function ListingDetail({ id }: { id: string }) {
     if (net === "wa") window.open(`https://wa.me/?text=${encodeURIComponent(`${txt}: ${url}`)}`, "_blank", "noopener");
     else if (net === "x") window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(txt)}&url=${encodeURIComponent(url)}`, "_blank", "noopener");
     else if (net === "fb") window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`, "_blank", "noopener");
-    else { await navigator.clipboard.writeText(url); alert("Kısa bağlantı kopyalandı"); }
+    else {
+      const clean = url.trim();
+      try {
+        await navigator.clipboard.writeText(clean);
+      } catch {
+        // Eski/izinsiz tarayıcılar: textarea fallback
+        const ta = document.createElement("textarea");
+        ta.value = clean; ta.style.position = "fixed"; ta.style.opacity = "0";
+        document.body.appendChild(ta); ta.select();
+        try { document.execCommand("copy"); } catch { /* yoksay */ }
+        ta.remove();
+      }
+      alert("Bağlantı kopyalandı:\n" + clean);
+    }
   }
 
   async function doBoost(packageId: string) {

@@ -143,3 +143,53 @@ export function OtherPagesSection() {
     </div>
   );
 }
+
+// =================== DUYURU GÖNDER (toplu push bildirim) ===================
+export function BroadcastSection() {
+  const [title, setTitle] = useState("Evinde para var! 💰");
+  const [body, setBody] = useState("İlan yükle, kazanmaya başla — kullanmadığın eşyalar komşunun ihtiyacı olabilir.");
+  const [saveInApp, setSaveInApp] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState<string | null>(null);
+
+  async function send() {
+    if (!title.trim()) { setResult("Başlık gerekli."); return; }
+    if (!confirm(`Tüm kullanıcılara bildirim gönderilecek:\n\n${title}\n${body}\n\nOnaylıyor musun?`)) return;
+    setBusy(true); setResult(null);
+    try {
+      const r = await api.adminBroadcast({ title: title.trim(), body: body.trim() || undefined, saveInApp });
+      setResult(`✓ Gönderildi — ${r.pushSent}/${r.tokens} cihaza push${saveInApp ? `, ${r.inApp} uygulama-içi bildirim` : ""}${r.cleaned ? `, ${r.cleaned} ölü token temizlendi` : ""}.`);
+    } catch (e) {
+      setResult("Hata: " + (e as Error).message);
+    } finally { setBusy(false); }
+  }
+
+  return (
+    <div className="ad-panel">
+      <div className="ad-panel-h"><div><h3 className="t">Duyuru Gönder</h3><p className="s">Tüm kullanıcılara anlık push bildirimi</p></div><span className="hint">📣</span></div>
+      <div style={{ padding: 20, display: "flex", flexDirection: "column", gap: 14, maxWidth: 560 }}>
+        <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          <span className="s">Başlık</span>
+          <input className="input" value={title} onChange={(e) => setTitle(e.target.value)} maxLength={80} placeholder="Başlık" />
+        </label>
+        <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          <span className="s">Metin</span>
+          <textarea className="input" rows={3} value={body} onChange={(e) => setBody(e.target.value)} maxLength={200} placeholder="Bildirim metni" />
+        </label>
+        <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
+          <input type="checkbox" checked={saveInApp} onChange={(e) => setSaveInApp(e.target.checked)} />
+          <span className="s">Uygulama-içi bildirim feed'ine de ekle</span>
+        </label>
+        <div style={{ background: "var(--bg-soft, #f6f7f9)", borderRadius: 10, padding: "12px 14px", border: "1px solid var(--border)" }}>
+          <div style={{ fontSize: 12, opacity: 0.6, marginBottom: 4 }}>Önizleme</div>
+          <div style={{ fontWeight: 800 }}>{title || "Başlık"}</div>
+          <div style={{ fontSize: 13 }}>{body}</div>
+        </div>
+        <button className="btn btn-primary" onClick={send} disabled={busy} style={{ alignSelf: "flex-start" }}>
+          {busy ? "Gönderiliyor…" : "📣 Herkese Gönder"}
+        </button>
+        {result && <div className={result.startsWith("✓") ? "badge badge-success" : ""} style={{ color: result.startsWith("✓") ? undefined : "var(--danger)" }}>{result}</div>}
+      </div>
+    </div>
+  );
+}

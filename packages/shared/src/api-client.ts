@@ -312,6 +312,13 @@ export class SatiyoClient {
   adminStats() {
     return this.request<AdminStats>("/admin/stats");
   }
+  /** Tüm kullanıcılara toplu push duyurusu (+ isteğe bağlı uygulama-içi bildirim). */
+  adminBroadcast(input: { title: string; body?: string; saveInApp?: boolean }) {
+    return this.request<{ ok: true; pushSent: number; tokens: number; inApp: number; cleaned: number }>(
+      "/admin/broadcast",
+      { method: "POST", body: JSON.stringify(input) },
+    );
+  }
   adminOverview() {
     return this.request<{
       listingsDaily: { day: string; count: number }[];

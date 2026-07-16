@@ -539,3 +539,47 @@ adminRoutes.delete("/synonyms/:id", async (c) => {
   await c.env.DB.prepare(`DELETE FROM synonyms WHERE id = ?`).bind(c.req.param("id")).run();
   return c.json({ ok: true as const });
 });
+
+// --- Toplu duyuru bildirimi (tüm kullanıcılara push + isteğe bağlı in-app satır) ---
+const EXPO_PUSH = "https://exp.host/--/api/v2/push/send";
+adminRoutes.post("/broadcast", async (c) => {
+  const body = (await c.req.json().catch(() => ({}))) as { title?: unknown; body?: unknown; data?: unknown; saveInApp?: unknown };
+  const title = typeof body.title === "string" ? body.title.trim() : "";
+  const text = typeof body.body === "string" ? body.body.trim() : "";
+  if (!title) badRequest("Başlık gerekli");
+
+  // İsteğe bağlı: her kullanıcıya uygulama-içi bildirim satırı da yaz (bildirim feed'i).
+  let inAppCount = 0;
+  if (body.saveInApp === true) {
+    const users = await c.env.DB.prepare(`SELECT id FROM users WHERE banned = 0`).all();
+    const ts = now();
+    const batch = (users.results as { id: string }[]).map((u) =>
+      c.env.DB.prepare(`INSERT INTO notifications (id, user_id, type, title, body, data, created_at) VALUES (?,?, 'system', ?, ?, NULL, ?)`)
+        .bind(newId("ntf"), u.id, title, text || null, ts),
+    );
+    for (let i = 0; i < batch.length; i += 50) {
+      try { await c.env.DB.batch(batch.slice(i, i + 50)); inAppCount += Math.min(50, batch.length - i); } catch { /* yut */ }
+    }
+  }
+
+  // Push: tüm kayıtlı Expo token'larına (100'lük gruplar), ölüleri temizle.
+  const rows = await c.env.DB.prepare(`SELECT token FROM push_tokens`).all();
+  const tokens = (rows.results as { token: string }[]).map((r) => r.token).filter((t) => typeof t === "string" && t.startsWith("Expo"));
+  let sent = 0;
+  const dead: string[] = [];
+  for (let i = 0; i < tokens.length; i += 100) {
+    const chunk = tokens.slice(i, i + 100);
+    const messages = chunk.map((to) => ({ to, title, body: text || undefined, sound: "default" as const, priority: "high" as const, channelId: "default" }));
+    try {
+      const res = await fetch(EXPO_PUSH, { method: "POST", headers: { "content-type": "application/json", accept: "application/json" }, body: JSON.stringify(messages) });
+      const json = (await res.json().catch(() => null)) as { data?: { status?: string; details?: { error?: string } }[] } | null;
+      (json?.data ?? []).forEach((tk, j) => {
+        if (tk?.status === "ok") sent++;
+        else if (tk?.details?.error === "DeviceNotRegistered" && chunk[j]) dead.push(chunk[j]!);
+      });
+    } catch { /* grup başarısız → devam */ }
+  }
+  for (const tok of dead) { try { await c.env.DB.prepare(`DELETE FROM push_tokens WHERE token = ?`).bind(tok).run(); } catch { /* yut */ } }
+
+  return c.json({ ok: true as const, pushSent: sent, tokens: tokens.length, inApp: inAppCount, cleaned: dead.length });
+});

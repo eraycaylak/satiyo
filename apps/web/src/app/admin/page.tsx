@@ -9,7 +9,7 @@ import {
   ModerationSection, initials,
 } from "./sections";
 import { SystemSettings, AppSettings } from "./admin-settings";
-import { FeaturedSection, MessagesSection, OtherPagesSection } from "./admin-extra";
+import { FeaturedSection, MessagesSection, OtherPagesSection, BroadcastSection } from "./admin-extra";
 import { Dashboard, CategoriesSection, Placeholder } from "./dashboard";
 import { Icon } from "./icons";
 import "./admin.css";
@@ -17,7 +17,7 @@ import "./admin-dash.css";
 
 type Tab =
   | "overview" | "users" | "listings" | "categories" | "orders"
-  | "featured" | "reports" | "messages" | "moderation" | "system" | "appsettings" | "other";
+  | "featured" | "reports" | "messages" | "moderation" | "system" | "appsettings" | "broadcast" | "other";
 
 const NAV: { k: Tab; ic: string; label: string; badge?: "red" | "green" }[] = [
   { k: "overview", ic: "home", label: "Özet" },
@@ -31,6 +31,7 @@ const NAV: { k: Tab; ic: string; label: string; badge?: "red" | "green" }[] = [
   { k: "moderation", ic: "alert", label: "Şikayetler", badge: "red" },
   { k: "system", ic: "settings", label: "Sistem Ayarları" },
   { k: "appsettings", ic: "sliders", label: "Uygulama Ayarları" },
+  { k: "broadcast", ic: "chat", label: "Duyuru Gönder" },
   { k: "other", ic: "layers", label: "Diğer Sayfalar" },
 ];
 
@@ -130,6 +131,7 @@ export default function AdminPage() {
           {tab === "orders" && <Placeholder title="Siparişler" />}
           {tab === "featured" && <FeaturedSection />}
           {tab === "messages" && <MessagesSection />}
+          {tab === "broadcast" && <BroadcastSection />}
           {tab === "other" && <OtherPagesSection />}
         </div>
       </div>
