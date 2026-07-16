@@ -8,7 +8,7 @@ function resolveApiBase(): string {
   if (fromEnv) return fromEnv;
   const hostUri = Constants.expoConfig?.hostUri;
   if (hostUri) return `http://${hostUri.split(":")[0]}:8787`;
-  return "http://localhost:8787";
+  return "https://api.satiyo.app";
 }
 
 export const API_BASE = resolveApiBase();
