@@ -27,7 +27,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.satiyo.app",
-      "buildNumber": "28",
+      "buildNumber": "29",
       "infoPlist": {
         "NSPhotoLibraryUsageDescription": "İlan fotoğrafı seçmek için galerinize erişim gerekir.",
         "NSCameraUsageDescription": "İlan fotoğrafı çekmek için kameranıza erişim gerekir.",

@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -12,6 +13,8 @@ import { SellerCard } from "./SellerCard";
 import { ListingCard, ListingGrid } from "./ListingCard";
 import { JsonLd } from "./JsonLd";
 
+const MapView = dynamic(() => import("./MapView"), { ssr: false, loading: () => <div className="empty">Harita yükleniyor…</div> });
+
 export function ListingDetail({ id }: { id: string }) {
   const { user } = useAuth();
   const router = useRouter();
@@ -22,6 +25,8 @@ export function ListingDetail({ id }: { id: string }) {
   const [busy, setBusy] = useState(false);
   const [boostOpen, setBoostOpen] = useState(false);
   const [boostMsg, setBoostMsg] = useState<string | null>(null);
+  const [tab, setTab] = useState<"info" | "desc" | "loc">("info");
+  const [shortUrl, setShortUrl] = useState<string | null>(null);
 
   const { data: listing, isLoading, isError } = useQuery({
     queryKey: ["listing", id],
@@ -102,16 +107,23 @@ export function ListingDetail({ id }: { id: string }) {
     alert("Şikayetiniz alındı, teşekkürler.");
   }
 
-  async function share() {
-    let url = window.location.href;
+  // Kısa linki bir kez al, sonra sosyal paylaşımlarda kullan.
+  async function getShareUrl(): Promise<string> {
+    if (shortUrl) return shortUrl;
     try {
       const r = await api.shareLink(id);
-      if (r?.url) url = r.url;
-    } catch {
-      /* kısa link alınamazsa uzun linke düş */
-    }
-    if (navigator.share) navigator.share({ title: listing!.title, url }).catch(() => {});
-    else { navigator.clipboard.writeText(url); alert("Kısa bağlantı kopyalandı"); }
+      if (r?.url) { setShortUrl(r.url); return r.url; }
+    } catch { /* uzun linke düş */ }
+    return window.location.href;
+  }
+
+  async function shareTo(net: "wa" | "x" | "fb" | "copy") {
+    const url = await getShareUrl();
+    const txt = `${listing!.title} — ${formatPrice(listing!.price, listing!.priceType)} · Satıyo'da`;
+    if (net === "wa") window.open(`https://wa.me/?text=${encodeURIComponent(`${txt}: ${url}`)}`, "_blank", "noopener");
+    else if (net === "x") window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(txt)}&url=${encodeURIComponent(url)}`, "_blank", "noopener");
+    else if (net === "fb") window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`, "_blank", "noopener");
+    else { await navigator.clipboard.writeText(url); alert("Kısa bağlantı kopyalandı"); }
   }
 
   async function doBoost(packageId: string) {
@@ -138,7 +150,25 @@ export function ListingDetail({ id }: { id: string }) {
       </div>
 
       <div className="detail-grid">
-        <Gallery images={listing.images} title={listing.title} />
+        <div style={{ position: "relative" }}>
+          <Gallery images={listing.images} title={listing.title} />
+          {/* Sahibinden tarzı: foto üstünde sağ üst köşe — favori + sosyal paylaşım */}
+          <div className="gal-actions">
+            <button className="gal-act" onClick={toggleFav} aria-label="Favorilere ekle" title="Favori" style={{ color: fav ? "var(--danger)" : "var(--text)" }}>{fav ? "♥" : "♡"}</button>
+            <button className="gal-act" onClick={() => shareTo("wa")} aria-label="WhatsApp'ta paylaş" title="WhatsApp">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="#25D366"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm5.4 14.1c-.2.6-1.3 1.2-1.8 1.2-.5.1-1 .2-3.3-.7-2.8-1.1-4.6-4-4.7-4.2-.1-.2-1.1-1.5-1.1-2.9s.7-2 1-2.3c.2-.3.5-.3.7-.3h.5c.2 0 .4 0 .6.5l.9 2.1c.1.2.1.4 0 .6l-.4.6-.5.5c-.2.2-.3.4-.1.7.2.3.9 1.5 2 2.4 1.4 1.2 2.5 1.6 2.8 1.7.3.1.5.1.7-.1l1-1.2c.2-.3.4-.2.7-.1l2 1c.3.1.5.2.6.4 0 .1 0 .7-.2 1.3z"/></svg>
+            </button>
+            <button className="gal-act" onClick={() => shareTo("x")} aria-label="X'te paylaş" title="X (Twitter)">
+              <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M18.9 2H22l-6.8 7.8L23.2 22h-6.3l-4.9-6.4L6.4 22H3.3l7.3-8.3L1.2 2h6.4l4.4 5.9L18.9 2zm-1.1 18h1.7L7 3.7H5.1L17.8 20z"/></svg>
+            </button>
+            <button className="gal-act" onClick={() => shareTo("fb")} aria-label="Facebook'ta paylaş" title="Facebook">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="#1877F2"><path d="M22 12a10 10 0 1 0-11.6 9.9v-7H7.9V12h2.5V9.8c0-2.5 1.5-3.9 3.8-3.9 1.1 0 2.2.2 2.2.2v2.5h-1.3c-1.2 0-1.6.8-1.6 1.6V12h2.8l-.4 2.9h-2.3v7A10 10 0 0 0 22 12z"/></svg>
+            </button>
+            <button className="gal-act" onClick={() => shareTo("copy")} aria-label="Bağlantıyı kopyala" title="Bağlantıyı kopyala">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg>
+            </button>
+          </div>
+        </div>
 
         <div className="stack" style={{ gap: "var(--space-4)" }}>
           <div className="stack" style={{ gap: 8 }}>
@@ -163,7 +193,6 @@ export function ListingDetail({ id }: { id: string }) {
               {listing.priceType === "negotiable" && (
                 <button className="btn btn-ghost btn-lg" onClick={() => { setComposer("offer"); setText("Teklifim var"); }}>Teklif Ver</button>
               )}
-              <button className="btn btn-ghost btn-lg" onClick={toggleFav} aria-label="Favori" style={{ color: fav ? "var(--danger)" : undefined }}>{fav ? "♥" : "♡"}</button>
             </div>
           )}
           {isOwner && (
@@ -182,32 +211,46 @@ export function ListingDetail({ id }: { id: string }) {
         </div>
       </div>
 
-      {/* Özellikler */}
-      {schema.length > 0 && Object.keys(listing.attributes).length > 0 && (
-        <section className="card" style={{ padding: "var(--space-4) var(--space-5)" }}>
-          <h2 style={{ fontSize: 16, marginTop: 0 }}>Özellikler</h2>
-          <table className="attr-table">
-            <tbody>
-              {schema.filter((a) => listing.attributes[a.key]).map((a) => (
-                <tr key={a.key}><td>{a.label}</td><td>{listing.attributes[a.key]}</td></tr>
-              ))}
-            </tbody>
-          </table>
-        </section>
-      )}
+      {/* Sahibinden tarzı 3 sekme: İlan Bilgileri | Açıklama | Konumu */}
+      <section className="card" style={{ padding: 0, overflow: "hidden" }}>
+        <div className="dtabs" role="tablist">
+          <button role="tab" aria-selected={tab === "info"} className={"dtab" + (tab === "info" ? " on" : "")} onClick={() => setTab("info")}>İlan Bilgileri</button>
+          <button role="tab" aria-selected={tab === "desc"} className={"dtab" + (tab === "desc" ? " on" : "")} onClick={() => setTab("desc")}>Açıklama</button>
+          <button role="tab" aria-selected={tab === "loc"} className={"dtab" + (tab === "loc" ? " on" : "")} onClick={() => setTab("loc")}>Konumu</button>
+        </div>
+        <div style={{ padding: "var(--space-4) var(--space-5)" }}>
+          {tab === "info" && (
+            <table className="attr-table">
+              <tbody>
+                <tr><td>İlan No</td><td>{listing.id.replace(/^lst_/, "").slice(0, 10)}</td></tr>
+                <tr><td>İlan Tarihi</td><td>{timeAgo(listing.createdAt)}</td></tr>
+                {cat && <tr><td>Kategori</td><td>{cat.name}</td></tr>}
+                <tr><td>Durum</td><td>{conditionLabel[listing.condition]}</td></tr>
+                <tr><td>Fiyat Tipi</td><td>{priceTypeLabel[listing.priceType]}</td></tr>
+                <tr><td>Görüntülenme</td><td>{listing.viewCount}</td></tr>
+                {schema.filter((a) => listing.attributes[a.key]).map((a) => (
+                  <tr key={a.key}><td>{a.label}</td><td>{listing.attributes[a.key]}</td></tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+          {tab === "desc" && (
+            <p style={{ whiteSpace: "pre-wrap", margin: 0, lineHeight: 1.65 }}>{listing.description || "Bu ilan için açıklama girilmemiş."}</p>
+          )}
+          {tab === "loc" && (
+            <div className="stack" style={{ gap: 12 }}>
+              <div style={{ fontWeight: 700 }}>📍 {locationText(listing.city, listing.district)}</div>
+              <MapView listings={[listing]} />
+            </div>
+          )}
+        </div>
+      </section>
 
-      {/* Açıklama */}
-      {listing.description && (
-        <section className="card" style={{ padding: "var(--space-4) var(--space-5)" }}>
-          <h2 style={{ fontSize: 16, marginTop: 0 }}>Açıklama</h2>
-          <p style={{ whiteSpace: "pre-wrap", margin: 0, lineHeight: 1.6 }}>{listing.description}</p>
-        </section>
+      {!isOwner && (
+        <div className="row" style={{ gap: 12 }}>
+          <button className="btn btn-ghost" onClick={report} style={{ fontSize: 13 }}>⚑ Şikayet Et</button>
+        </div>
       )}
-
-      <div className="row" style={{ gap: 12 }}>
-        <button className="btn btn-ghost" onClick={share}>↗ Paylaş</button>
-        {!isOwner && <button className="btn btn-ghost" onClick={report}>⚑ Şikayet Et</button>}
-      </div>
 
       {/* Benzer ilanlar */}
       {similar && similar.items.filter((l) => l.id !== id).length > 0 && (

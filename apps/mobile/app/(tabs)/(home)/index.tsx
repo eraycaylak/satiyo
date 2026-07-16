@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type ComponentProps } from "react";
-import { Alert, Dimensions, FlatList, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { Alert, Dimensions, FlatList, Image, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
@@ -8,10 +8,12 @@ import { api } from "@/lib/client";
 import { track } from "@/lib/analytics";
 import { useAuth } from "@/lib/auth";
 import { radius, space, useTheme } from "@/lib/theme";
+import { formatPrice } from "@/lib/format";
 import { setInitialFilters, takeResultFilters, type FilterDraft } from "@/lib/filter-bridge";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ListingCard } from "@/components/ListingCard";
 import { ListingsMap } from "@/components/ListingsMap";
-import { CityPicker } from "@/components/CityPicker";
+import { CityPickerModal } from "@/components/CityPicker";
 import { detectLocation } from "@/lib/location";
 import { getLocationPref, loadLocationPref, subscribeLocationPref } from "@/lib/location-pref";
 import { Badge, Empty, Loading } from "@/components/ui";
@@ -41,6 +43,7 @@ const catMeta = (id?: string) => (id && CAT_META[id]) || ALL_META;
 export default function ExploreScreen() {
   const t = useTheme();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { user } = useAuth();
   const [q, setQ] = useState("");
   const [submitted, setSubmitted] = useState("");
@@ -48,6 +51,15 @@ export default function ExploreScreen() {
   const [sort, setSort] = useState<SortOption>("relevance");
   const [view, setView] = useState<"list" | "map">("list");
   const [city, setCity] = useState<string>(""); // "" = tüm Türkiye
+  const [cityOpen, setCityOpen] = useState(false);
+  const [searchFocus, setSearchFocus] = useState(false);
+  const [suggestQ, setSuggestQ] = useState("");
+
+  // Arama panelinde canlı öneriler için yazılanı 250ms geciktirerek uygula.
+  useEffect(() => {
+    const h = setTimeout(() => setSuggestQ(q.trim()), 250);
+    return () => clearTimeout(h);
+  }, [q]);
   const [gps, setGps] = useState<{ lat: number; lng: number } | null>(null);
   const [locating, setLocating] = useState(false);
   // Filtrele ekranından yönetilen gelişmiş filtreler.
@@ -142,49 +154,62 @@ export default function ExploreScreen() {
     enabled: !!user && browsing,
   });
 
+  // Arama paneli canlı önerileri (yazdıkça benzer ilanlar)
+  const { data: suggest } = useQuery({
+    queryKey: ["suggest", suggestQ],
+    queryFn: () => api.search({ q: suggestQ, pageSize: 8 }),
+    enabled: searchFocus && suggestQ.length >= 2,
+    placeholderData: keepPreviousData,
+  });
+
   async function saveSearch() {
     if (!user) return router.push("/giris");
     try { await api.saveSearch(filters, true); Alert.alert("Kaydedildi 🔔", "Eşleşen yeni ilanlarda haber vereceğiz."); }
     catch (e) { Alert.alert("Hata", (e as Error).message); }
   }
 
+  // Konum pin'i: Tüm Türkiye / il seç / GPS — tek dokunuşla kapsam değiştirme.
+  function openLocationChooser() {
+    Alert.alert(
+      "Konum",
+      city ? `Şu an: ${city}` : "Şu an: Tüm Türkiye",
+      [
+        { text: "Tüm Türkiye", onPress: () => setCity("") },
+        { text: "İl seç…", onPress: () => setCityOpen(true) },
+        { text: "Konumumu kullan", onPress: () => { void useMyLocation(); } },
+        { text: "Vazgeç", style: "cancel" },
+      ],
+    );
+  }
+
   const header = (
-      <View style={{ padding: space.lg, paddingBottom: space.sm, gap: space.md }}>
+      <View style={{ padding: space.lg, paddingTop: insets.top + space.sm, paddingBottom: space.sm, gap: space.md }}>
+        {/* Tek kompakt satır: Logo · arama · konum · filtre (liste ile birlikte kayar) */}
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-          <Pressable onPress={useMyLocation} hitSlop={6} style={{ width: 40, height: 40, borderRadius: radius.md, borderWidth: 1, borderColor: t.brand, alignItems: "center", justifyContent: "center", backgroundColor: t.brandSoft }}>
-            <Ionicons name={locating ? "sync" : "navigate"} size={18} color={t.brand} />
+          <Text style={{ fontSize: 21, fontWeight: "900", color: t.brand, letterSpacing: -0.5 }}>Satıyo</Text>
+          <TextInput
+            value={q}
+            onChangeText={setQ}
+            onFocus={() => setSearchFocus(true)}
+            onSubmitEditing={() => { const term = q.trim(); setSubmitted(term); setSearchFocus(false); if (term) track("search", { q: term }); }}
+            returnKeyType="search"
+            placeholder="Ne arıyorsun?"
+            placeholderTextColor={t.muted}
+            style={{ flex: 1, backgroundColor: t.surface, borderWidth: 1, borderColor: t.border, borderRadius: radius.md, paddingHorizontal: 12, paddingVertical: 9, color: t.text, fontSize: 14 }}
+          />
+          <Pressable onPress={openLocationChooser} hitSlop={4} style={{ width: 38, height: 38, borderRadius: radius.md, borderWidth: 1, borderColor: city ? t.brand : t.border, backgroundColor: city ? t.brandSoft : t.surface, alignItems: "center", justifyContent: "center" }}>
+            <Ionicons name={locating ? "sync" : "location"} size={18} color={city ? t.brand : t.text} />
           </Pressable>
-          <View style={{ flex: 1 }}><CityPicker value={city} onSelect={setCity} placeholder="Tüm Türkiye" /></View>
-          {city ? (
-            <Pressable onPress={() => setCity("")} hitSlop={8} style={{ borderWidth: 1, borderColor: t.brand, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 9 }}>
-              <Text style={{ color: t.brand, fontSize: 12, fontWeight: "700" }}>Tüm TR</Text>
-            </Pressable>
-          ) : null}
+          <Pressable onPress={openFilters} hitSlop={4} style={{ width: 38, height: 38, borderRadius: radius.md, borderWidth: 1, borderColor: activeFilters ? t.brand : t.border, backgroundColor: activeFilters ? t.brandSoft : t.surface, alignItems: "center", justifyContent: "center" }}>
+            <Ionicons name="options-outline" size={18} color={activeFilters ? t.brand : t.text} />
+            {activeFilters > 0 ? (
+              <View style={{ position: "absolute", top: -5, right: -5, backgroundColor: t.brand, borderRadius: 999, minWidth: 16, height: 16, paddingHorizontal: 3, alignItems: "center", justifyContent: "center" }}>
+                <Text style={{ color: "#fff", fontSize: 10, fontWeight: "800" }}>{activeFilters}</Text>
+              </View>
+            ) : null}
+          </Pressable>
         </View>
-        {city ? <Text style={{ color: t.muted, fontSize: 12, marginTop: -4 }}>Daha fazla ilan için “Tüm TR” ile aralığı genişletebilirsin.</Text> : null}
-        <TextInput
-          value={q}
-          onChangeText={setQ}
-          onSubmitEditing={() => { const term = q.trim(); setSubmitted(term); if (term) track("search", { q: term }); }}
-          returnKeyType="search"
-          placeholder="Ne arıyorsun? (iPhone, koltuk, bisiklet)"
-          placeholderTextColor={t.muted}
-          style={{ backgroundColor: t.surface, borderWidth: 1, borderColor: t.border, borderRadius: radius.md, padding: 12, color: t.text }}
-        />
-        <Pressable
-          onPress={openFilters}
-          style={{ flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: t.surface, borderWidth: 1, borderColor: activeFilters ? t.brand : t.border, borderRadius: radius.md, paddingHorizontal: 14, paddingVertical: 12 }}
-        >
-          <Ionicons name="options-outline" size={18} color={activeFilters ? t.brand : t.text} />
-          <Text style={{ flex: 1, color: activeFilters ? t.brand : t.text, fontSize: 15, fontWeight: "700" }}>Filtrele</Text>
-          {activeFilters > 0 ? (
-            <View style={{ backgroundColor: t.brand, borderRadius: 999, minWidth: 22, height: 22, paddingHorizontal: 6, alignItems: "center", justifyContent: "center" }}>
-              <Text style={{ color: "#fff", fontSize: 12, fontWeight: "800" }}>{activeFilters}</Text>
-            </View>
-          ) : (
-            <Ionicons name="chevron-forward" size={18} color={t.muted} />
-          )}
-        </Pressable>
+        <CityPickerModal visible={cityOpen} onClose={() => setCityOpen(false)} value={city} onSelect={(c) => { setCity(c); setCityOpen(false); }} title="Konum seç" />
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: space.md, paddingVertical: 2 }}>
           {[{ id: undefined, name: "Tümü" }, ...roots].map((c) => {
             const active = categoryId === c.id;
@@ -260,6 +285,44 @@ export default function ExploreScreen() {
           }
           ListEmptyComponent={emptyState}
         />
+      )}
+
+      {/* Canlı arama paneli — yarı saydam, yazdıkça benzer ilanlar */}
+      {searchFocus && (
+        <View style={{ position: "absolute", top: insets.top + 58, left: 0, right: 0, bottom: 0, zIndex: 40 }}>
+          <Pressable onPress={() => setSearchFocus(false)} style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(10,12,16,0.22)" }} />
+          <View style={{ marginHorizontal: space.lg, borderRadius: radius.lg, backgroundColor: `${t.surface}F5`, borderWidth: 1, borderColor: t.border, shadowColor: "#000", shadowOpacity: 0.16, shadowRadius: 18, shadowOffset: { width: 0, height: 10 }, elevation: 8, overflow: "hidden", maxHeight: 430 }}>
+            {suggestQ.length < 2 ? (
+              <Text style={{ padding: space.lg, color: t.muted, fontSize: 13 }}>Yazmaya başla — iPhone, koltuk, bisiklet…</Text>
+            ) : (
+              <ScrollView keyboardShouldPersistTaps="handled">
+                {(suggest?.items ?? []).map((l) => (
+                  <Pressable key={l.id} onPress={() => { setSearchFocus(false); router.push(`/ilan/${l.id}`); }}
+                    style={{ flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: space.lg, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: t.border }}>
+                    {l.images?.[0]?.url ? (
+                      <Image source={{ uri: l.images[0].url }} style={{ width: 44, height: 44, borderRadius: radius.sm, backgroundColor: t.surface2 }} />
+                    ) : (
+                      <View style={{ width: 44, height: 44, borderRadius: radius.sm, backgroundColor: t.surface2, alignItems: "center", justifyContent: "center" }}>
+                        <Ionicons name="image-outline" size={18} color={t.muted} />
+                      </View>
+                    )}
+                    <View style={{ flex: 1 }}>
+                      <Text numberOfLines={1} style={{ color: t.text, fontWeight: "600", fontSize: 14 }}>{l.title}</Text>
+                      {l.city ? <Text style={{ color: t.muted, fontSize: 12 }}>{l.city}</Text> : null}
+                    </View>
+                    <Text style={{ color: t.brand, fontWeight: "800", fontSize: 13 }}>{formatPrice(l.price, l.priceType)}</Text>
+                  </Pressable>
+                ))}
+                {suggest && suggest.items.length === 0 && (
+                  <Text style={{ padding: space.lg, color: t.muted, fontSize: 13 }}>Sonuç yok — farklı bir kelime dene.</Text>
+                )}
+                <Pressable onPress={() => { setSubmitted(suggestQ); setSearchFocus(false); track("search", { q: suggestQ }); }} style={{ padding: 13, alignItems: "center", backgroundColor: t.brandSoft }}>
+                  <Text style={{ color: t.brand, fontWeight: "800", fontSize: 13 }}>&quot;{suggestQ}&quot; için tüm sonuçları gör →</Text>
+                </Pressable>
+              </ScrollView>
+            )}
+          </View>
+        </View>
       )}
     </View>
   );

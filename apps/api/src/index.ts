@@ -82,8 +82,14 @@ app.get("/links/:code", async (c) => {
   return c.json({ listingId: r.listing_id });
 });
 
-// R2 medya servisi (MVP — prod'da CDN/Images önüne alınır)
+// R2 medya servisi — Cloudflare edge cache'li: ilk istek R2'den okur ve colo
+// cache'ine yazar, sonrakiler edge'den döner (görsel yükleme hızının anahtarı).
 app.get("/media/*", async (c) => {
+  const cache = caches.default;
+  const cacheKey = new Request(c.req.url);
+  const hit = await cache.match(cacheKey);
+  if (hit) return hit;
+
   const key = c.req.path.replace(/^\/media\//, "");
   const obj = await c.env.MEDIA.get(key);
   if (!obj) return c.notFound();
@@ -91,7 +97,10 @@ app.get("/media/*", async (c) => {
   obj.writeHttpMetadata(headers);
   headers.set("cache-control", "public, max-age=31536000, immutable");
   headers.set("etag", obj.httpEtag);
-  return new Response(obj.body, { headers });
+  const res = new Response(obj.body, { headers });
+  // Cache'e kopyasını koy (await etme — yanıtı geciktirmesin).
+  c.executionCtx.waitUntil(cache.put(cacheKey, res.clone()));
+  return res;
 });
 
 // API route'ları

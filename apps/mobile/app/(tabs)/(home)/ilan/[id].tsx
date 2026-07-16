@@ -1,15 +1,16 @@
 import { useEffect, useState } from "react";
-import { Alert, Dimensions, Image, Modal, Pressable, ScrollView, Share, Text, TextInput, View } from "react-native";
+import { Alert, Dimensions, Image, Linking, Modal, Pressable, ScrollView, Share, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useQuery } from "@tanstack/react-query";
-import { getAttributeSchema, BOOST_PACKAGES } from "@satiyo/shared";
+import { getAttributeSchema, getCategory, BOOST_PACKAGES } from "@satiyo/shared";
 import { api } from "@/lib/client";
 import { track } from "@/lib/analytics";
 import { useAuth } from "@/lib/auth";
 import { radius, space, useTheme } from "@/lib/theme";
 import { conditionLabel, formatNumber, formatPrice, locationText, priceTypeLabel, timeAgo } from "@/lib/format";
 import { Badge, Button, Loading } from "@/components/ui";
+import { ListingsMap } from "@/components/ListingsMap";
 import ImageView from "react-native-image-viewing";
 
 // Dijital "Öne Çıkar" satın alımı App Store'da IAP gerektirir (Guideline 3.1.1).
@@ -32,6 +33,8 @@ export default function ListingDetailScreen() {
   const [offerAmount, setOfferAmount] = useState("");
   const [sending, setSending] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
+  const [tab, setTab] = useState<"info" | "desc" | "loc">("info");
+  const [shortUrl, setShortUrl] = useState<string | null>(null);
   const W = Dimensions.get("window").width;
 
   const { data: listing, isLoading } = useQuery({
@@ -100,6 +103,27 @@ export default function ListingDetailScreen() {
     if (!user) return router.push("/giris");
     setReportOpen(true);
   }
+
+  // Kısa linki bir kez al; sosyal paylaşımlar bunu kullanır.
+  async function getShareUrl(): Promise<string> {
+    if (shortUrl) return shortUrl;
+    try {
+      const r = await api.shareLink(String(id));
+      if (r?.url) { setShortUrl(r.url); return r.url; }
+    } catch { /* uzun linke düş */ }
+    return `https://satiyo.app/ilan/${id}`;
+  }
+
+  async function shareTo(net: "wa" | "x" | "fb" | "native") {
+    const url = await getShareUrl();
+    const txt = `${listing!.title} — ${formatPrice(listing!.price, listing!.priceType)} · Satıyo'da`;
+    try {
+      if (net === "wa") await Linking.openURL(`https://wa.me/?text=${encodeURIComponent(`${txt}: ${url}`)}`);
+      else if (net === "x") await Linking.openURL(`https://twitter.com/intent/tweet?text=${encodeURIComponent(txt)}&url=${encodeURIComponent(url)}`);
+      else if (net === "fb") await Linking.openURL(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`);
+      else await Share.share({ message: `${txt}: ${url}`, url });
+    } catch { /* paylaşım iptal/başarısız — sessiz */ }
+  }
   async function submitReport(reason: string) {
     setReportOpen(false);
     try {
@@ -110,13 +134,30 @@ export default function ListingDetailScreen() {
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: t.bg }} contentContainerStyle={{ paddingBottom: space.xxl }}>
-      <ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator={false}>
-        {listing.images.length ? listing.images.map((img, i) => (
-          <Pressable key={img.id} onPress={() => setViewerIndex(i)}>
-            <Image source={{ uri: img.url }} style={{ width: W, height: W, backgroundColor: t.surface2 }} resizeMode="cover" />
-          </Pressable>
-        )) : <View style={{ width: W, height: W, backgroundColor: t.surface2, alignItems: "center", justifyContent: "center" }}><Ionicons name="image-outline" size={56} color={t.muted} /></View>}
-      </ScrollView>
+      <View style={{ position: "relative" }}>
+        <ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator={false}>
+          {listing.images.length ? listing.images.map((img, i) => (
+            <Pressable key={img.id} onPress={() => setViewerIndex(i)}>
+              <Image source={{ uri: img.url }} style={{ width: W, height: W, backgroundColor: t.surface2 }} resizeMode="cover" />
+            </Pressable>
+          )) : <View style={{ width: W, height: W, backgroundColor: t.surface2, alignItems: "center", justifyContent: "center" }}><Ionicons name="image-outline" size={56} color={t.muted} /></View>}
+        </ScrollView>
+        {/* Sahibinden tarzı: foto sağ üst — favori + WhatsApp + X + Facebook + paylaş */}
+        <View style={{ position: "absolute", top: 12, right: 12, flexDirection: "row", gap: 8 }}>
+          {[
+            { key: "fav", icon: (fav ? "heart" : "heart-outline") as const, color: t.danger, onPress: toggleFav },
+            { key: "wa", icon: "logo-whatsapp" as const, color: "#25D366", onPress: () => shareTo("wa") },
+            { key: "x", icon: "logo-twitter" as const, color: "#111", onPress: () => shareTo("x") },
+            { key: "fb", icon: "logo-facebook" as const, color: "#1877F2", onPress: () => shareTo("fb") },
+            { key: "share", icon: "share-outline" as const, color: "#333", onPress: () => shareTo("native") },
+          ].map((b) => (
+            <Pressable key={b.key} onPress={b.onPress} hitSlop={4}
+              style={{ width: 36, height: 36, borderRadius: 999, backgroundColor: "rgba(255,255,255,0.93)", alignItems: "center", justifyContent: "center", shadowColor: "#000", shadowOpacity: 0.2, shadowRadius: 5, shadowOffset: { width: 0, height: 2 }, elevation: 3 }}>
+              <Ionicons name={b.icon} size={18} color={b.color} />
+            </Pressable>
+          ))}
+        </View>
+      </View>
       {listing.images.length > 0 && (
         <ImageView
           images={listing.images.map((im) => ({ uri: im.url }))}
@@ -140,9 +181,6 @@ export default function ListingDetailScreen() {
           <View style={{ flexDirection: "row", gap: 8 }}>
             <Button title="Mesaj At" onPress={() => message()} style={{ flex: 1 }} />
             {listing.priceType === "negotiable" && <Button title="Teklif Ver" variant="ghost" onPress={() => { setOfferAmount(""); setOfferOpen(true); }} style={{ flex: 1 }} />}
-            <Pressable onPress={toggleFav} style={{ borderWidth: 1, borderColor: t.border, borderRadius: radius.md, paddingVertical: 13, paddingHorizontal: 18, alignItems: "center", justifyContent: "center" }}>
-              <Ionicons name={fav ? "heart" : "heart-outline"} size={20} color={t.danger} />
-            </Pressable>
           </View>
         )}
 
@@ -171,29 +209,53 @@ export default function ListingDetailScreen() {
           <Text style={{ color: t.brand, fontSize: 13, flex: 1 }}>Kapora gönderme. Yüz yüze, güvenli yerde buluş.</Text>
         </View>
 
-        {schema.filter((a) => listing.attributes[a.key]).length > 0 && (
-          <View style={{ backgroundColor: t.surface, borderWidth: 1, borderColor: t.border, borderRadius: radius.lg, padding: space.lg }}>
-            <Text style={{ fontWeight: "800", marginBottom: 8, color: t.text }}>Özellikler</Text>
-            {schema.filter((a) => listing.attributes[a.key]).map((a) => (
-              <View key={a.key} style={{ flexDirection: "row", justifyContent: "space-between", paddingVertical: 8, borderTopWidth: 1, borderTopColor: t.border }}>
-                <Text style={{ color: t.muted }}>{a.label}</Text>
-                <Text style={{ color: t.text, fontWeight: "600" }}>{listing.attributes[a.key]}</Text>
-              </View>
+        {/* Sahibinden tarzı 3 sekme: İlan Bilgileri | Açıklama | Konumu */}
+        <View style={{ backgroundColor: t.surface, borderWidth: 1, borderColor: t.border, borderRadius: radius.lg, overflow: "hidden" }}>
+          <View style={{ flexDirection: "row", borderBottomWidth: 1, borderBottomColor: t.border, backgroundColor: t.surface2 }}>
+            {([["info", "İlan Bilgileri"], ["desc", "Açıklama"], ["loc", "Konumu"]] as const).map(([k, l]) => (
+              <Pressable key={k} onPress={() => setTab(k)} style={{ flex: 1, paddingVertical: 12, alignItems: "center", borderBottomWidth: 2, borderBottomColor: tab === k ? t.brand : "transparent", backgroundColor: tab === k ? t.surface : "transparent" }}>
+                <Text style={{ fontWeight: "700", fontSize: 13, color: tab === k ? t.brand : t.muted }}>{l}</Text>
+              </Pressable>
             ))}
           </View>
-        )}
-
-        {!!listing.description && (
-          <View style={{ backgroundColor: t.surface, borderWidth: 1, borderColor: t.border, borderRadius: radius.lg, padding: space.lg }}>
-            <Text style={{ fontWeight: "800", marginBottom: 8, color: t.text }}>Açıklama</Text>
-            <Text style={{ color: t.text, lineHeight: 21 }}>{listing.description}</Text>
+          <View style={{ padding: space.lg }}>
+            {tab === "info" && (
+              <View>
+                {[
+                  ["İlan No", listing.id.replace(/^lst_/, "").slice(0, 10)],
+                  ["İlan Tarihi", timeAgo(listing.createdAt)],
+                  ...(getCategory(listing.categoryId) ? [["Kategori", getCategory(listing.categoryId)!.name]] : []),
+                  ["Durum", conditionLabel[listing.condition]!],
+                  ["Fiyat Tipi", priceTypeLabel[listing.priceType]],
+                  ["Görüntülenme", String(listing.viewCount)],
+                  ...schema.filter((a) => listing.attributes[a.key]).map((a) => [a.label, String(listing.attributes[a.key])]),
+                ].map(([k, v], i) => (
+                  <View key={String(k)} style={{ flexDirection: "row", justifyContent: "space-between", paddingVertical: 9, borderTopWidth: i === 0 ? 0 : 1, borderTopColor: t.border }}>
+                    <Text style={{ color: t.muted }}>{k}</Text>
+                    <Text style={{ color: t.text, fontWeight: "600", flexShrink: 1, textAlign: "right" }}>{v}</Text>
+                  </View>
+                ))}
+              </View>
+            )}
+            {tab === "desc" && (
+              <Text style={{ color: t.text, lineHeight: 22 }}>{listing.description || "Bu ilan için açıklama girilmemiş."}</Text>
+            )}
+            {tab === "loc" && (
+              <View style={{ gap: 10 }}>
+                <Text style={{ color: t.text, fontWeight: "700" }}><Ionicons name="location" size={15} color={t.brand} /> {locationText(listing.city, listing.district)}</Text>
+                <View style={{ height: 240, borderRadius: radius.md, overflow: "hidden" }}>
+                  <ListingsMap listings={[listing]} />
+                </View>
+              </View>
+            )}
           </View>
-        )}
-
-        <View style={{ flexDirection: "row", gap: 8 }}>
-          <Button title="Paylaş" variant="ghost" onPress={async () => { let u = `https://satiyo.app/ilan/${id}`; try { const r = await api.shareLink(String(id)); if (r?.url) u = r.url; } catch {} Share.share({ message: `${listing.title} — ${formatPrice(listing.price, listing.priceType)} · Satıyo'da: ${u}`, url: u }); }} style={{ flex: 1 }} />
-          {!isOwner && <Button title="Şikayet" variant="ghost" onPress={report} style={{ flex: 1 }} />}
         </View>
+
+        {!isOwner && (
+          <Pressable onPress={report} style={{ alignSelf: "center", paddingVertical: 6 }}>
+            <Text style={{ color: t.muted, fontSize: 13 }}><Ionicons name="flag-outline" size={13} color={t.muted} /> İlanı şikayet et</Text>
+          </Pressable>
+        )}
       </View>
 
       <Modal visible={boostOpen} transparent animationType="slide" onRequestClose={() => setBoostOpen(false)}>

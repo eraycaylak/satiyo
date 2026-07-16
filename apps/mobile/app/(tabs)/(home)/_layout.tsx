@@ -16,7 +16,8 @@ export default function HomeStackLayout() {
         headerBackButtonDisplayMode: "minimal",
       }}
     >
-      <Stack.Screen name="index" options={{ title: "Keşfet" }} />
+      {/* Keşfet: navigator başlığı yok — logo + arama + konum + filtre tek kompakt satırda (ekranın kendi header'ı) */}
+      <Stack.Screen name="index" options={{ headerShown: false }} />
       <Stack.Screen name="ilan/[id]" options={{ title: "İlan" }} />
       <Stack.Screen name="satici/[id]" options={{ title: "Satıcı" }} />
     </Stack>
