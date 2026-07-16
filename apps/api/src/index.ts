@@ -82,6 +82,48 @@ app.get("/links/:code", async (c) => {
   return c.json({ listingId: r.listing_id });
 });
 
+// Küçültülmüş görsel — /media/thumb/<genişlik>/<key>. Sosyal önizleme (og:image,
+// WhatsApp ~600KB üstünü reddeder) ve grid thumbnail'ları için. Photon (WASM) ile
+// resize edilir, edge cache'e yazılır. Decode edilemezse orijinal döner.
+app.get("/media/thumb/:w/*", async (c) => {
+  const cache = caches.default;
+  const cacheKey = new Request(c.req.url);
+  const hit = await cache.match(cacheKey);
+  if (hit) return hit;
+
+  const w = Math.min(1600, Math.max(64, Number(c.req.param("w")) || 600));
+  const key = c.req.path.replace(/^\/media\/thumb\/[^/]+\//, "");
+  const obj = await c.env.MEDIA.get(key);
+  if (!obj) return c.notFound();
+
+  const bytes = new Uint8Array(await obj.arrayBuffer());
+  let out = bytes;
+  let type = obj.httpMetadata?.contentType ?? "image/jpeg";
+  try {
+    const { PhotonImage, resize, SamplingFilter } = await import("@cf-wasm/photon");
+    const img = PhotonImage.new_from_byteslice(bytes);
+    const ow = img.get_width();
+    if (ow > w) {
+      const nh = Math.round((img.get_height() * w) / ow);
+      const resized = resize(img, w, nh, SamplingFilter.CatmullRom);
+      out = resized.get_bytes_jpeg(78);
+      resized.free();
+      type = "image/jpeg";
+    }
+    img.free();
+  } catch {
+    // resize başarısız → orijinali servis et (önizleme çıkmayabilir ama görsel kırılmaz)
+  }
+
+  const headers = new Headers({
+    "content-type": type,
+    "cache-control": "public, max-age=31536000, immutable",
+  });
+  const res = new Response(out, { headers });
+  c.executionCtx.waitUntil(cache.put(cacheKey, res.clone()));
+  return res;
+});
+
 // R2 medya servisi — Cloudflare edge cache'li: ilk istek R2'den okur ve colo
 // cache'ine yazar, sonrakiler edge'den döner (görsel yükleme hızının anahtarı).
 app.get("/media/*", async (c) => {

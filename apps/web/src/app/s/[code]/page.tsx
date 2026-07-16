@@ -56,7 +56,7 @@ export async function generateMetadata({ params }: { params: Promise<{ code: str
   const loc = [l.city, l.district].filter(Boolean).join(", ");
   const title = `${l.title} — ${priceLabel(l)}${loc ? " · " + loc : ""}`;
   const description = (l.description?.trim() || `${l.title} — Satıyo'da ikinci el ilan. Evinde para var.`).slice(0, 160);
-  const img = l.images?.[0]?.url;
+  const img = l.images?.[0]?.url?.replace("/media/", "/media/thumb/800/");
   return {
     title,
     description,

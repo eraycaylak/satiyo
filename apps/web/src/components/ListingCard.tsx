@@ -9,7 +9,7 @@ import { useAuth } from "@/lib/auth";
 export function ListingCard({ listing }: { listing: Listing }) {
   const { user } = useAuth();
   const [fav, setFav] = useState(!!listing.favorited);
-  const cover = listing.images[0]?.url;
+  const cover = listing.images[0]?.url?.replace("/media/", "/media/thumb/400/");
   const boosted = listing.boostedUntil != null && listing.boostedUntil > Date.now();
 
   async function toggleFav(e: React.MouseEvent) {

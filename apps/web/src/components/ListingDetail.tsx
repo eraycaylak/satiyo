@@ -222,7 +222,7 @@ export function ListingDetail({ id }: { id: string }) {
           {tab === "info" && (
             <table className="attr-table">
               <tbody>
-                <tr><td>İlan No</td><td>{listing.id.replace(/^lst_/, "").slice(0, 10)}</td></tr>
+                <tr><td>İlan No</td><td>{(() => { const hx = listing.id.replace(/^lst_/, ""); try { return String(BigInt("0x" + hx)).slice(0, 10); } catch { return hx.replace(/\D/g, "").slice(0, 10) || "0"; } })()}</td></tr>
                 <tr><td>İlan Tarihi</td><td>{timeAgo(listing.createdAt)}</td></tr>
                 {cat && <tr><td>Kategori</td><td>{cat.name}</td></tr>}
                 <tr><td>Durum</td><td>{conditionLabel[listing.condition]}</td></tr>

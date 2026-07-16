@@ -2,6 +2,7 @@
 import { Suspense, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import { Header } from "@/components/Header";
+import { MobileNav } from "@/components/MobileNav";
 
 /**
  * Site kabuğu. /admin komuta merkezi kendi tam-ekran düzenini kullanır;
@@ -31,6 +32,7 @@ export function Chrome({ children }: { children: ReactNode }) {
           </nav>
         </div>
       </footer>
+      <MobileNav />
     </>
   );
 }

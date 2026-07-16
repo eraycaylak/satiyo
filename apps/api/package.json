@@ -14,6 +14,7 @@
     "seed:local": "wrangler d1 execute satiyo --local --file ./seed.sql"
   },
   "dependencies": {
+    "@cf-wasm/photon": "^0.3.7",
     "@satiyo/shared": "workspace:*",
     "hono": "^4.6.14"
   },

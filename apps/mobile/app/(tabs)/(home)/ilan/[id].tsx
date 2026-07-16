@@ -222,7 +222,7 @@ export default function ListingDetailScreen() {
             {tab === "info" && (
               <View>
                 {[
-                  ["İlan No", listing.id.replace(/^lst_/, "").slice(0, 10)],
+                  ["İlan No", (() => { const hx = listing.id.replace(/^lst_/, ""); try { return String(BigInt("0x" + hx)).slice(0, 10); } catch { return hx.replace(/\D/g, "").slice(0, 10) || "0"; } })()],
                   ["İlan Tarihi", timeAgo(listing.createdAt)],
                   ...(getCategory(listing.categoryId) ? [["Kategori", getCategory(listing.categoryId)!.name]] : []),
                   ["Durum", conditionLabel[listing.condition]!],
