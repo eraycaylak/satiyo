@@ -300,7 +300,7 @@ export default function ExploreScreen() {
                   <Pressable key={l.id} onPress={() => { setSearchFocus(false); router.push(`/ilan/${l.id}`); }}
                     style={{ flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: space.lg, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: t.border }}>
                     {l.images?.[0]?.url ? (
-                      <Image source={{ uri: l.images[0].url }} style={{ width: 44, height: 44, borderRadius: radius.sm, backgroundColor: t.surface2 }} />
+                      <Image source={{ uri: l.images[0].url.replace("/media/", "/media/thumb/200/") }} style={{ width: 44, height: 44, borderRadius: radius.sm, backgroundColor: t.surface2 }} />
                     ) : (
                       <View style={{ width: 44, height: 44, borderRadius: radius.sm, backgroundColor: t.surface2, alignItems: "center", justifyContent: "center" }}>
                         <Ionicons name="image-outline" size={18} color={t.muted} />

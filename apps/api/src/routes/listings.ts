@@ -17,6 +17,7 @@ import { badRequest, forbidden, notFound } from "../lib/http.js";
 import { newId, now } from "../lib/id.js";
 import { hydrateListings, rowToListing, rowToSeller } from "../lib/db.js";
 import { notify } from "../lib/notify.js";
+import { rewardReferralOnFirstListing } from "../lib/credit.js";
 import { areBlocked } from "../lib/blocks.js";
 import { inspectListing } from "../lib/safety.js";
 import { moderateListingAI } from "../lib/moderation.js";
@@ -293,6 +294,9 @@ listingRoutes.post("/", requireAuth, async (c) => {
       }),
     );
   }
+
+  // Davet ödülü — davet edilen kullanıcı ilk ilanını verdiyse karşılıklı kredi (best-effort).
+  c.executionCtx?.waitUntil(rewardReferralOnFirstListing(c.env.DB, user.id));
 
   const row = await c.env.DB.prepare(`SELECT * FROM listings WHERE id = ?`).bind(id).first();
   const [listing] = await hydrateListings(c.env.DB, [rowToListing(row as Record<string, unknown>)], { withSeller: true });

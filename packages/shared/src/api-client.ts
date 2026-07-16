@@ -78,11 +78,15 @@ export class SatiyoClient {
       body: JSON.stringify({ phone }),
     });
   }
-  verifyOtp(phone: string, code: string) {
+  verifyOtp(phone: string, code: string, ref?: string) {
     return this.request<AuthSession>("/auth/otp/verify", {
       method: "POST",
-      body: JSON.stringify({ phone, code }),
+      body: JSON.stringify({ phone, code, ...(ref ? { ref } : {}) }),
     });
+  }
+  /** Davet/referans: kısa kod + paylaşım linki + istatistik. */
+  referral() {
+    return this.request<{ code: string | null; link: string | null; invited: number; rewarded: number; earnedMinor: number; rewardMinor: number }>("/me/referral");
   }
   /** GEÇİCİ — numarasız dev giriş (prod'da kaldırılacak). */
   devLogin() {

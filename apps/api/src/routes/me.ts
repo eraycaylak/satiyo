@@ -57,6 +57,49 @@ meRoutes.get("/wallet", async (c) => {
   return c.json({ balance, history });
 });
 
+// --- Davet / referans: kısa kod (tembel üretilir) + link + istatistik ---
+const REF_ALPHABET = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
+function makeRefCode(len = 7): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(len));
+  let s = "";
+  for (let i = 0; i < len; i++) s += REF_ALPHABET[bytes[i]! % REF_ALPHABET.length];
+  return s;
+}
+meRoutes.get("/referral", async (c) => {
+  const user = c.get("user");
+  const row = await c.env.DB.prepare(`SELECT ref_code FROM users WHERE id = ?`).bind(user.id).first<{ ref_code: string | null }>();
+  let code = row?.ref_code ?? null;
+  if (!code) {
+    for (let i = 0; i < 6 && !code; i++) {
+      const cand = makeRefCode(7);
+      try {
+        const r = await c.env.DB.prepare(`UPDATE users SET ref_code = ? WHERE id = ? AND ref_code IS NULL`).bind(cand, user.id).run();
+        if (r.meta.changes > 0) code = cand;
+      } catch {
+        // kod çakışması → tekrar dene
+      }
+    }
+    if (!code) {
+      const re = await c.env.DB.prepare(`SELECT ref_code FROM users WHERE id = ?`).bind(user.id).first<{ ref_code: string | null }>();
+      code = re?.ref_code ?? null;
+    }
+  }
+  const stats = await c.env.DB.prepare(
+    `SELECT COUNT(*) AS total, SUM(CASE WHEN status='rewarded' THEN 1 ELSE 0 END) AS rewarded FROM referrals WHERE referrer_user_id = ?`,
+  ).bind(user.id).first<{ total: number; rewarded: number }>();
+  const earned = await c.env.DB.prepare(
+    `SELECT COALESCE(SUM(amount_minor),0) AS m FROM credit_ledger WHERE user_id = ? AND txn_type = 'referral_reward'`,
+  ).bind(user.id).first<{ m: number }>();
+  return c.json({
+    code,
+    link: code ? `https://satiyo.app/?ref=${code}` : null,
+    invited: Number(stats?.total ?? 0),
+    rewarded: Number(stats?.rewarded ?? 0),
+    earnedMinor: Number(earned?.m ?? 0),
+    rewardMinor: 5000,
+  });
+});
+
 // Takip ettiğim satıcılar
 meRoutes.get("/following", async (c) => {
   const user = c.get("user");

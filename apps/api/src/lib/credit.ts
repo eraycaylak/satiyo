@@ -89,3 +89,27 @@ async function sha256Hex(s: string): Promise<string> {
   const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s));
   return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
+
+/**
+ * Davet edilen kullanıcı İLK ilanını verince ödülü tetikler: davet edene + davet
+ * edilene REFERRAL_REWARD_MINOR kredi (karşılıklı). Idempotent (grantCredit anahtarı +
+ * referral status). Best-effort: ilan oluşturmayı asla bozmaz. createListing sonunda çağrılır.
+ */
+export async function rewardReferralOnFirstListing(db: D1Database, userId: string): Promise<void> {
+  try {
+    const ref = await db
+      .prepare(`SELECT referrer_user_id FROM referrals WHERE referred_user_id = ? AND status = 'pending'`)
+      .bind(userId)
+      .first<{ referrer_user_id: string }>();
+    if (!ref) return;
+    const referrer = ref.referrer_user_id;
+    await grantCredit(db, referrer, "referral_reward", REFERRAL_REWARD_MINOR, `ref:${userId}:referrer`, { type: "referral", id: userId });
+    await grantCredit(db, userId, "referral_reward", REFERRAL_REWARD_MINOR, `ref:${userId}:referred`, { type: "referral", id: referrer });
+    await db
+      .prepare(`UPDATE referrals SET status = 'rewarded', rewarded_at = ? WHERE referred_user_id = ? AND status = 'pending'`)
+      .bind(now(), userId)
+      .run();
+  } catch {
+    // ödül verilemezse ilan akışını bozma
+  }
+}

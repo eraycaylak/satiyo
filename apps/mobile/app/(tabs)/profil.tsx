@@ -150,6 +150,8 @@ export default function ProfileScreen() {
         <View style={{ height: 1, backgroundColor: t.border, marginLeft: 50 }} />
         <Row icon="search" color="#8b5cf6" label="Kayıtlı Aramalarım" onPress={() => router.push("/kayitli-aramalar")} />
         <View style={{ height: 1, backgroundColor: t.border, marginLeft: 50 }} />
+        <Row icon="gift" color="#22c55e" label="Arkadaşını Davet Et" onPress={() => router.push("/davet")} />
+        <View style={{ height: 1, backgroundColor: t.border, marginLeft: 50 }} />
         <Row icon="notifications" color="#f59e0b" label="Bildirimler" badge={unread || undefined} onPress={() => router.push("/bildirimler")} />
         <View style={{ height: 1, backgroundColor: t.border, marginLeft: 50 }} />
         <Row icon="star" color="#eab308" label="Değerlendirmelerim" onPress={() => router.push(`/satici/${user.id}`)} />

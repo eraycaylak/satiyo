@@ -75,15 +75,32 @@ async function issueSession(c: { env: Env }, phone: string, name: string, city?:
   return { token, user, expiresAt: exp * 1000 };
 }
 
+/** Davet kodunu yakala — yalnızca YENİ kullanıcı için, kendini davet değilse (best-effort). */
+async function captureReferral(env: Env, newUserId: string, ref?: string): Promise<void> {
+  if (!ref) return;
+  try {
+    const referrer = await env.DB.prepare(`SELECT id FROM users WHERE ref_code = ?`).bind(ref.trim()).first<{ id: string }>();
+    if (!referrer || referrer.id === newUserId) return;
+    await env.DB.prepare(
+      `INSERT OR IGNORE INTO referrals (referred_user_id, referrer_user_id, status, created_at) VALUES (?,?, 'pending', ?)`,
+    ).bind(newUserId, referrer.id, now()).run();
+  } catch {
+    // referans yakalanamadıysa girişi bozma
+  }
+}
+
 /** OTP doğrulandıktan sonra: gerçek kullanıcıyı oluştur/getir, banlıysa reddet, oturum aç. */
-async function finishLogin(c: { env: Env }, phone: string) {
+async function finishLogin(c: { env: Env }, phone: string, ref?: string) {
   let userRow = await c.env.DB.prepare(`SELECT * FROM users WHERE phone = ?`).bind(phone).first();
+  let created = false;
   if (!userRow) {
+    created = true;
     const id = newId("usr");
     await c.env.DB.prepare(
       `INSERT INTO users (id, phone, name, created_at, phone_verified) VALUES (?, ?, ?, ?, 1)`,
     ).bind(id, phone, "Satıyo Kullanıcısı", now()).run();
     userRow = await c.env.DB.prepare(`SELECT * FROM users WHERE id = ?`).bind(id).first();
+    await captureReferral(c.env, id, ref);
   } else if (!userRow.phone_verified) {
     await c.env.DB.prepare(`UPDATE users SET phone_verified = 1 WHERE id = ?`).bind(userRow.id).run();
   }
@@ -175,7 +192,7 @@ authRoutes.post("/otp/request", async (c) => {
 authRoutes.post("/otp/verify", async (c) => {
   const parsed = verifyOtpSchema.safeParse(await c.req.json().catch(() => ({})));
   if (!parsed.success) badRequest("Geçersiz kod", parsed.error.flatten());
-  const { phone, code } = parsed.data!;
+  const { phone, code, ref } = parsed.data!;
 
   // Denetçi demo hesabı: sabit kodla SMS'siz giriş.
   if (phone === REVIEWER_PHONE && code === REVIEWER_CODE) {
@@ -186,7 +203,7 @@ authRoutes.post("/otp/verify", async (c) => {
   if (twilioConfigured(c.env)) {
     const approved = await checkVerification(c.env, phone, code);
     if (!approved) fail(400, "otp_invalid", "Kod hatalı veya süresi doldu");
-    return c.json(await finishLogin(c, phone));
+    return c.json(await finishLogin(c, phone, ref));
   }
 
   // Yerel OTP tablosu (Twilio yoksa — dev / NetGSM fallback).
@@ -203,5 +220,5 @@ authRoutes.post("/otp/verify", async (c) => {
 
   await c.env.DB.prepare(`DELETE FROM otp_codes WHERE phone = ?`).bind(phone).run();
 
-  return c.json(await finishLogin(c, phone));
+  return c.json(await finishLogin(c, phone, ref));
 });

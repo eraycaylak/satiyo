@@ -68,6 +68,7 @@ export default function ProfilePage() {
         <Link href="/ilanlarim" className="btn btn-ghost grow">İlanlarım</Link>
         <Link href="/favoriler" className="btn btn-ghost grow">Favorilerim</Link>
       </div>
+      <Link href="/davet" className="btn btn-ghost" style={{ marginTop: 8 }}>🎁 Arkadaşını Davet Et — Kredi Kazan</Link>
       {user.isStore ? (
         <div className="card row" style={{ padding: "var(--space-4)", gap: 10, marginTop: 8 }}>
           <span className="badge badge-brand">Mağaza</span>

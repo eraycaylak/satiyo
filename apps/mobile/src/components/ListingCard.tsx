@@ -15,7 +15,7 @@ export function ListingCard({ listing, width }: { listing: Listing; width: numbe
   const qc = useQueryClient();
   const { user } = useAuth();
   const [fav, setFav] = useState(!!listing.favorited);
-  const cover = listing.images[0]?.url;
+  const cover = listing.images[0]?.url?.replace("/media/", "/media/thumb/400/");
 
   // Favori bayrağı prop'tan değişirse (ör. cache tazelenince) yerel state'i senkronla.
   useEffect(() => { setFav(!!listing.favorited); }, [listing.favorited]);

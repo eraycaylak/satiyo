@@ -59,6 +59,7 @@ export default function RootLayout() {
           <Stack.Screen name="sohbet/[id]" options={{ title: "Sohbet" }} />
           <Stack.Screen name="bildirimler" options={{ title: "Bildirimler" }} />
           <Stack.Screen name="ilanlarim" options={{ title: "İlanlarım" }} />
+          <Stack.Screen name="davet" options={{ title: "Arkadaşını Davet Et" }} />
           <Stack.Screen name="magaza-basvuru" options={{ title: "Mağaza Başvurusu" }} />
           <Stack.Screen name="kayitli-aramalar" options={{ title: "Kayıtlı Aramalarım" }} />
           <Stack.Screen name="engellenenler" options={{ title: "Engellenen Kullanıcılar" }} />

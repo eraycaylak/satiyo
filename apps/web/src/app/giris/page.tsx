@@ -3,6 +3,7 @@ import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { api } from "@/lib/client";
 import { useAuth } from "@/lib/auth";
+import { readRefCode } from "@/components/RefCapture";
 
 function LoginInner() {
   const { setSession } = useAuth();
@@ -37,7 +38,8 @@ function LoginInner() {
     setError(null);
     setBusy(true);
     try {
-      const session = await api.verifyOtp(fullPhone, code.replace(/\D/g, ""));
+      const session = await api.verifyOtp(fullPhone, code.replace(/\D/g, ""), readRefCode());
+      try { localStorage.removeItem("satiyo_ref"); } catch { /* yoksay */ }
       setSession(session.token, session.user);
       router.push(next);
     } catch (e) {

@@ -14,6 +14,7 @@ export const requestOtpSchema = z.object({
 export const verifyOtpSchema = z.object({
   phone: phoneSchema,
   code: z.string().regex(/^\d{6}$/, "6 haneli kod"),
+  ref: z.string().trim().max(40).optional(), // davet kodu (yeni kullanıcıysa referans yakalanır)
 });
 
 export const updateProfileSchema = z.object({
