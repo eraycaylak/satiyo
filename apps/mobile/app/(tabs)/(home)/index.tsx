@@ -1,17 +1,19 @@
-import { useEffect, useState, type ComponentProps } from "react";
+import { useCallback, useEffect, useState, type ComponentProps } from "react";
 import { Alert, Dimensions, FlatList, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { cityToCoords, getChildren, type SearchFilters, type SortOption } from "@satiyo/shared";
 import { api } from "@/lib/client";
 import { track } from "@/lib/analytics";
 import { useAuth } from "@/lib/auth";
 import { radius, space, useTheme } from "@/lib/theme";
+import { setInitialFilters, takeResultFilters, type FilterDraft } from "@/lib/filter-bridge";
 import { ListingCard } from "@/components/ListingCard";
 import { ListingsMap } from "@/components/ListingsMap";
 import { CityPicker } from "@/components/CityPicker";
 import { detectLocation } from "@/lib/location";
+import { getLocationPref, loadLocationPref, subscribeLocationPref } from "@/lib/location-pref";
 import { Badge, Empty, Loading } from "@/components/ui";
 
 const GAP = space.md;
@@ -48,9 +50,59 @@ export default function ExploreScreen() {
   const [city, setCity] = useState<string>(""); // "" = tüm Türkiye
   const [gps, setGps] = useState<{ lat: number; lng: number } | null>(null);
   const [locating, setLocating] = useState(false);
+  // Filtrele ekranından yönetilen gelişmiş filtreler.
+  const [boostedOnly, setBoostedOnly] = useState(false);
+  const [minPrice, setMinPrice] = useState<number | undefined>();
+  const [maxPrice, setMaxPrice] = useState<number | undefined>();
+  const [condition, setCondition] = useState<"new" | "used" | undefined>();
+  const [sellerType, setSellerType] = useState<"individual" | "store" | undefined>();
+  const [attrs, setAttrs] = useState<Record<string, string>>({});
 
-  // Varsayılan: kullanıcının şehri (yerel odak). Kullanıcı "Tüm TR" ile genişletebilir.
-  useEffect(() => { if (!city && user?.city) setCity(user.city); }, [user]);
+  // Varsayılan kapsam: ilk açılışta LocationGate ile seçilen tercih (yalnız il /
+  // tüm TR). Tercih yoksa kullanıcının kayıtlı şehrine düşer. Gate seçim yapınca
+  // abonelik ile buraya yansır. Kullanıcının manuel şehir seçimini ezmez.
+  useEffect(() => {
+    const apply = () => {
+      const pref = getLocationPref();
+      if (pref) {
+        setCity(pref.scope === "local" ? pref.city : "");
+        return;
+      }
+      if (user?.city) setCity(user.city);
+    };
+    loadLocationPref().then(apply);
+    const unsub = subscribeLocationPref(apply);
+    return unsub;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
+
+  // Filtrele ekranı "Uygula" ile geri dönünce (odaklanınca) sonucu uygula.
+  useFocusEffect(useCallback(() => {
+    const d = takeResultFilters();
+    if (!d) return;
+    setQ(d.q);
+    setSubmitted(d.q.trim());
+    setCategoryId(d.categoryId);
+    setCity(d.city);
+    setBoostedOnly(d.boostedOnly);
+    setMinPrice(d.minPrice);
+    setMaxPrice(d.maxPrice);
+    setCondition(d.condition);
+    setSellerType(d.sellerType);
+    setAttrs(d.attrs);
+    setSort(d.sort);
+  }, []));
+
+  function openFilters() {
+    const draft: FilterDraft = { q: submitted, categoryId, city, boostedOnly, minPrice, maxPrice, condition, sellerType, attrs, sort };
+    setInitialFilters(draft);
+    router.push("/filtrele");
+  }
+
+  const activeFilters =
+    (categoryId ? 1 : 0) + (city ? 1 : 0) + (boostedOnly ? 1 : 0) +
+    (minPrice != null || maxPrice != null ? 1 : 0) + (condition ? 1 : 0) +
+    (sellerType ? 1 : 0) + Object.keys(attrs).length + (submitted ? 1 : 0);
 
   async function useMyLocation() {
     setLocating(true);
@@ -68,6 +120,9 @@ export default function ExploreScreen() {
   const filters: SearchFilters = {
     q: submitted || undefined, categoryId, sort, pageSize: 24,
     city: city || undefined,
+    minPrice, maxPrice, condition, sellerType,
+    boostedOnly: boostedOnly || undefined,
+    attrs: Object.keys(attrs).length ? attrs : undefined,
     ...(near ? { lat: near.lat, lng: near.lng } : {}),
   };
   const { data, isLoading, isError, refetch, isFetching } = useQuery({
@@ -93,8 +148,7 @@ export default function ExploreScreen() {
     catch (e) { Alert.alert("Hata", (e as Error).message); }
   }
 
-  return (
-    <View style={{ flex: 1, backgroundColor: t.bg }}>
+  const header = (
       <View style={{ padding: space.lg, paddingBottom: space.sm, gap: space.md }}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
           <Pressable onPress={useMyLocation} hitSlop={6} style={{ width: 40, height: 40, borderRadius: radius.md, borderWidth: 1, borderColor: t.brand, alignItems: "center", justifyContent: "center", backgroundColor: t.brandSoft }}>
@@ -117,6 +171,20 @@ export default function ExploreScreen() {
           placeholderTextColor={t.muted}
           style={{ backgroundColor: t.surface, borderWidth: 1, borderColor: t.border, borderRadius: radius.md, padding: 12, color: t.text }}
         />
+        <Pressable
+          onPress={openFilters}
+          style={{ flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: t.surface, borderWidth: 1, borderColor: activeFilters ? t.brand : t.border, borderRadius: radius.md, paddingHorizontal: 14, paddingVertical: 12 }}
+        >
+          <Ionicons name="options-outline" size={18} color={activeFilters ? t.brand : t.text} />
+          <Text style={{ flex: 1, color: activeFilters ? t.brand : t.text, fontSize: 15, fontWeight: "700" }}>Filtrele</Text>
+          {activeFilters > 0 ? (
+            <View style={{ backgroundColor: t.brand, borderRadius: 999, minWidth: 22, height: 22, paddingHorizontal: 6, alignItems: "center", justifyContent: "center" }}>
+              <Text style={{ color: "#fff", fontSize: 12, fontWeight: "800" }}>{activeFilters}</Text>
+            </View>
+          ) : (
+            <Ionicons name="chevron-forward" size={18} color={t.muted} />
+          )}
+        </Pressable>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: space.md, paddingVertical: 2 }}>
           {[{ id: undefined, name: "Tümü" }, ...roots].map((c) => {
             const active = categoryId === c.id;
@@ -149,22 +217,36 @@ export default function ExploreScreen() {
           </Pressable>
         </View>
       </View>
+  );
 
-      {isLoading ? <Loading /> :
-        isError ? <Empty icon="warning-outline" text="Bir şeyler ters gitti." /> :
-        !data || data.items.length === 0 ? <Empty text={`Sonuç bulunamadı${submitted ? ` — “${submitted}”` : ""}.`} /> :
-        view === "map" ? <ListingsMap listings={data.items} /> :
+  const hasItems = !!data && data.items.length > 0;
+  const emptyState =
+    isLoading ? <Loading /> :
+    isError ? <Empty icon="warning-outline" text="Bir şeyler ters gitti." /> :
+    <Empty text={`Sonuç bulunamadı${submitted ? ` — “${submitted}”` : ""}.`} />;
+
+  return (
+    <View style={{ flex: 1, backgroundColor: t.bg }}>
+      {view === "map" ? (
+        <>
+          {header}
+          {hasItems ? <ListingsMap listings={data.items} /> : emptyState}
+        </>
+      ) : (
         <FlatList
-          data={data.items}
+          data={data?.items ?? []}
           keyExtractor={(l) => l.id}
           numColumns={2}
           columnWrapperStyle={{ gap: GAP, paddingHorizontal: space.lg }}
-          contentContainerStyle={{ gap: GAP, paddingBottom: space.xxl }}
+          contentContainerStyle={{ gap: GAP, paddingBottom: space.xxl, flexGrow: 1 }}
           renderItem={({ item }) => <ListingCard listing={item} width={cardW} />}
           refreshing={isFetching}
           onRefresh={refetch}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
           ListHeaderComponent={
             <View>
+              {header}
               {browsing && reco && reco.items.length > 0 && (
                 <View style={{ marginBottom: space.sm }}>
                   <Text style={{ paddingHorizontal: space.lg, fontSize: 16, fontWeight: "800", color: t.text, marginBottom: 6 }}><Ionicons name="sparkles" size={16} color={t.accent} /> Senin için</Text>
@@ -173,10 +255,12 @@ export default function ExploreScreen() {
                   </ScrollView>
                 </View>
               )}
-              <Text style={{ paddingHorizontal: space.lg, paddingVertical: space.sm, color: t.muted }}>{data.total} ilan</Text>
+              {hasItems ? <Text style={{ paddingHorizontal: space.lg, paddingVertical: space.sm, color: t.muted }}>{data.total} ilan</Text> : null}
             </View>
           }
-        />}
+          ListEmptyComponent={emptyState}
+        />
+      )}
     </View>
   );
 }

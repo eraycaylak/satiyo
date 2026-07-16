@@ -15,6 +15,16 @@ function leafCategories(): { id: string; name: string }[] {
   return CATEGORIES.filter((c) => !parentIds.has(c.id)).map((c) => ({ id: c.id, name: c.name }));
 }
 
+// SSRF koruması — yalnız kendi medya host'umuza (PUBLIC_MEDIA_BASE origin'i) izin ver.
+// Dış/iç ağ adreslerine (localhost, 169.254.169.254 metadata vb.) istek atılmasını engeller.
+function isAllowedMediaUrl(url: string, mediaBase: string): boolean {
+  try {
+    return new URL(url).origin === new URL(mediaBase).origin;
+  } catch {
+    return false;
+  }
+}
+
 async function urlToInline(url: string): Promise<{ mimeType: string; data: string }> {
   const r = await fetch(url, { headers: { "User-Agent": "SatiyoBot/1.0 (+https://satiyo.app)", Accept: "image/*" } });
   if (!r.ok) throw new Error("foto indirilemedi");
@@ -35,6 +45,9 @@ aiRoutes.post("/suggest-listing", requireAuth, async (c) => {
   if (body.imageBase64) {
     inline = { mimeType: body.mimeType || "image/jpeg", data: body.imageBase64 };
   } else if (body.imageUrl) {
+    if (!isAllowedMediaUrl(body.imageUrl, c.env.PUBLIC_MEDIA_BASE)) {
+      badRequest("Fotoğraf yalnızca kendi medya adresimizden yüklenebilir");
+    }
     try { inline = await urlToInline(body.imageUrl); } catch { badRequest("Fotoğraf okunamadı"); }
   }
   if (!inline) badRequest("imageUrl veya imageBase64 gerekli");

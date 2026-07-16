@@ -1,0 +1,11 @@
+{
+  "timestamp": "2026-07-15T23:18:41.037Z",
+  "projectRoot": "/Users/x/Desktop/Github-Projelerim/SatıyoApp/apps/mobile",
+  "structure": {
+    "hasPackageJson": true,
+    "hasTsConfig": true,
+    "hasClaudeConfig": false,
+    "hasClaudeFlow": true
+  },
+  "scannedAt": 1784157521037
+}

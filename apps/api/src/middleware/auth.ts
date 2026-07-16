@@ -1,7 +1,8 @@
 import type { MiddlewareHandler } from "hono";
 import type { Env, Variables } from "../env.js";
 import { verifyJwt } from "../lib/crypto.js";
-import { unauthorized } from "../lib/http.js";
+import { fail, unauthorized } from "../lib/http.js";
+import { now } from "../lib/id.js";
 
 /** Bearer jetonu doğrular, geçerliyse c.set("user", ...) yapar. */
 export const requireAuth: MiddlewareHandler<{ Bindings: Env; Variables: Variables }> =
@@ -11,6 +12,19 @@ export const requireAuth: MiddlewareHandler<{ Bindings: Env; Variables: Variable
     if (!token) unauthorized();
     const payload = await verifyJwt(token!, c.env.JWT_SECRET);
     if (!payload) unauthorized("Geçersiz veya süresi dolmuş oturum");
+
+    // Ban + oturum-iptali kontrolü: imza geçerli olsa da, kullanıcı banlıysa veya
+    // oturum kaydı silinmişse (hesap silme / admin iptali) erişimi reddet.
+    // (JWT stateless olduğundan bu kontrol olmadan ban/silme aktif token'ı geçersizleştiremiyordu.)
+    const acct = await c.env.DB.prepare(
+      `SELECT u.banned AS banned,
+              (SELECT 1 FROM sessions WHERE id = ?2 AND user_id = u.id AND expires_at > ?3) AS session_ok
+       FROM users u WHERE u.id = ?1`,
+    ).bind(payload!.sub, payload!.jti, now()).first();
+    if (!acct) unauthorized("Oturum geçersiz");
+    if ((acct as Record<string, unknown>).banned) fail(403, "banned", "Hesabınız askıya alındı");
+    if (!(acct as Record<string, unknown>).session_ok) unauthorized("Oturum sonlandırılmış, tekrar giriş yapın");
+
     c.set("user", { id: payload!.sub, phone: payload!.phone });
     // A1 — son görülme (koşullu, 30sn debounce; yanıtı bloklamaz, write-amp önler)
     touchLastSeen(c, payload!.sub);

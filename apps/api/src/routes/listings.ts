@@ -125,6 +125,18 @@ listingRoutes.get("/", optionalAuth, async (c) => {
     where.push("su.is_store = ?");
     binds.push(f.sellerType === "store" ? 1 : 0);
   }
+  // Öne çıkan (boost'lu) ilanlar
+  if (f.boostedOnly) { where.push("l.boosted_until IS NOT NULL AND l.boosted_until > ?"); binds.push(ts); }
+  // Kategori özniteliği filtreleri (Marka/Yakıt/Vites/Renk/Kasa Tipi vb.) — her biri EXISTS ile
+  if (f.attrs) {
+    let attrMap: Record<string, unknown> = {};
+    try { attrMap = JSON.parse(f.attrs) as Record<string, unknown>; } catch { attrMap = {}; }
+    for (const [k, v] of Object.entries(attrMap).slice(0, 15)) {
+      if (typeof v !== "string" || !v) continue;
+      where.push("EXISTS (SELECT 1 FROM listing_attributes la WHERE la.listing_id = l.id AND la.key = ? AND la.value = ?)");
+      binds.push(k, v);
+    }
+  }
 
   // Engellenen/engelleyen kullanıcıların ilanları feed'den anında gizlenir (App Store Guideline 1.2)
   const viewer = c.get("user");
@@ -251,10 +263,12 @@ listingRoutes.post("/", requireAuth, async (c) => {
       c.env.DB.prepare(`INSERT INTO listing_attributes (listing_id, key, value) VALUES (?, ?, ?)`).bind(id, key, value),
     );
   }
-  // Görselleri bu ilana bağla (sahiplik: yükleyen kullanıcı zaten kendisi)
+  // Görselleri bu ilana bağla — YALNIZ yükleyenin kendi görselleri (IDOR koruması:
+  // owner_id filtresi olmadan başkasının görsel id'si verilip çalınabiliyordu).
   input.imageIds.forEach((imgId, i) => {
     statements.push(
-      c.env.DB.prepare(`UPDATE listing_images SET listing_id = ?, position = ? WHERE id = ?`).bind(id, i, imgId),
+      c.env.DB.prepare(`UPDATE listing_images SET listing_id = ?, position = ? WHERE id = ? AND owner_id = ?`)
+        .bind(id, i, imgId, user.id),
     );
   });
 
@@ -364,6 +378,14 @@ listingRoutes.post("/:id/sold", requireAuth, async (c) => {
   const parsed = markSoldSchema.safeParse(await c.req.json().catch(() => ({})));
   if (!parsed.success) badRequest("Geçersiz", parsed.error.flatten());
   const { buyerId, channel } = parsed.data!;
+
+  // buyerId verildiyse gerçekten bu ilanda satıcıyla konuşmuş bir alıcı olmalı (keyfi kullanıcı engeli)
+  if (buyerId) {
+    const buyerConv = await c.env.DB.prepare(
+      `SELECT 1 FROM conversations WHERE listing_id = ? AND seller_id = ? AND buyer_id = ?`,
+    ).bind(id, user.id, buyerId).first();
+    if (!buyerConv) badRequest("Alıcı bu ilanda sizinle konuşmamış");
+  }
 
   const ts = now();
   await c.env.DB.batch([

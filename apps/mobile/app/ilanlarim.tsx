@@ -28,7 +28,10 @@ export default function MyListingsScreen() {
   function remove(id: string) {
     Alert.alert("İlanı kaldır", "Emin misin?", [
       { text: "Vazgeç", style: "cancel" },
-      { text: "Kaldır", style: "destructive", onPress: async () => { await api.deleteListing(id); invalidate(); } },
+      { text: "Kaldır", style: "destructive", onPress: async () => {
+        try { await api.deleteListing(id); invalidate(); }
+        catch (e) { Alert.alert("Hata", (e as Error).message); }
+      } },
     ]);
   }
 

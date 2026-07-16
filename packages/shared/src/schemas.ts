@@ -60,6 +60,9 @@ export const searchQuerySchema = z.object({
   condition: conditionSchema.optional(),
   sellerType: z.enum(["individual", "store"]).optional(),
   withImageOnly: z.coerce.boolean().optional(),
+  boostedOnly: z.coerce.boolean().optional(),
+  // Kategori özniteliği filtreleri — JSON string ({ marka:"BMW", yakit:"Dizel" }); backend parse eder.
+  attrs: z.string().max(2000).optional(),
   sort: z
     .enum(["relevance", "newest", "price_asc", "price_desc", "nearest"])
     .default("relevance"),

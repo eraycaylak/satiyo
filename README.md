@@ -1,6 +1,6 @@
 # Zınk
 
-Reklamsız, yerel odaklı ikinci-el ilan ve alışveriş platformu. **"Komşundan al, komşuna sat."**
+Reklamsız, yerel odaklı ikinci-el ilan ve alışveriş platformu. **"Evinde para var."**
 
 ## Yığın
 

@@ -2,12 +2,12 @@
   "expo": {
     "name": "Satıyo",
     "slug": "satiyo",
-    "version": "1.1.0",
+    "version": "1.1.2",
     "scheme": "satiyo",
     "icon": "./assets/icon.png",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
+    "newArchEnabled": false,
     "primaryColor": "#f0434c",
     "runtimeVersion": {
       "policy": "appVersion"
@@ -27,7 +27,8 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.satiyo.app",
-      "buildNumber": "19",
+      "buildNumber": "25",
+      "associatedDomains": ["applinks:satiyo.app"],
       "infoPlist": {
         "NSPhotoLibraryUsageDescription": "İlan fotoğrafı seçmek için galerinize erişim gerekir.",
         "NSCameraUsageDescription": "İlan fotoğrafı çekmek için kameranıza erişim gerekir.",
@@ -68,7 +69,7 @@
     },
     "android": {
       "package": "com.satiyo.app",
-      "versionCode": 6,
+      "versionCode": 8,
       "adaptiveIcon": {
         "foregroundImage": "./assets/icon.png",
         "backgroundColor": "#f0434c"
@@ -123,6 +124,12 @@
           "photosPermission": "İlan fotoğrafı eklemek için galeriye erişim.",
           "cameraPermission": "İlan fotoğrafı çekmek için kameraya erişim.",
           "microphonePermission": false
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "color": "#f0434c"
         }
       ]
     ],

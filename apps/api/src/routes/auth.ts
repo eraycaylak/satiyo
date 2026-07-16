@@ -18,6 +18,39 @@ const SESSION_TTL_S = 60 * 60 * 24 * 30; // 30 gün
 const REVIEWER_PHONE = "+905550000000";
 const REVIEWER_CODE = "424242";
 
+// OTP istek hız sınırı (SMS bombardımanı / maliyet istismarı önlemi)
+const OTP_WINDOW_MS = 60 * 60 * 1000; // 1 saat
+const OTP_MAX_PER_WINDOW = 5;
+const OTP_COOLDOWN_MS = 60 * 1000; // 60 sn
+
+/** Numara başına OTP isteği hız sınırı: 60sn cooldown + saatlik pencerede en fazla 5. */
+async function checkOtpRate(
+  db: D1Database,
+  phone: string,
+): Promise<{ ok: true } | { ok: false; message: string }> {
+  const nowMs = now();
+  const row = await db.prepare(`SELECT window_start, count, last_sent FROM otp_rate WHERE phone = ?`).bind(phone).first();
+  if (row) {
+    const lastSent = row.last_sent as number;
+    const windowStart = row.window_start as number;
+    const count = row.count as number;
+    if (nowMs - lastSent < OTP_COOLDOWN_MS) {
+      return { ok: false, message: "Çok sık kod istediniz. Lütfen bir dakika bekleyip tekrar deneyin." };
+    }
+    if (nowMs - windowStart < OTP_WINDOW_MS && count >= OTP_MAX_PER_WINDOW) {
+      return { ok: false, message: "Saatlik kod isteği sınırına ulaştınız. Lütfen daha sonra tekrar deneyin." };
+    }
+  }
+  await db.prepare(
+    `INSERT INTO otp_rate (phone, window_start, count, last_sent) VALUES (?1, ?2, 1, ?2)
+     ON CONFLICT(phone) DO UPDATE SET
+       count = CASE WHEN ?2 - window_start < ${OTP_WINDOW_MS} THEN count + 1 ELSE 1 END,
+       window_start = CASE WHEN ?2 - window_start < ${OTP_WINDOW_MS} THEN window_start ELSE ?2 END,
+       last_sent = ?2`,
+  ).bind(phone, nowMs).run();
+  return { ok: true };
+}
+
 export const authRoutes = new Hono<{ Bindings: Env; Variables: Variables }>();
 
 /** Demo/denetçi kullanıcısını oluştur/getir → JWT oturum dön. */
@@ -104,6 +137,10 @@ authRoutes.post("/otp/request", async (c) => {
   // Denetçi demo numarası: SMS gönderme, sabit kod kullanılacak.
   if (phone === REVIEWER_PHONE) return c.json({ ok: true as const, delivered: false });
 
+  // Hız sınırı: numara başına 60sn ara + saatte 5 istek (SMS bombardımanı/maliyet istismarı önlemi).
+  const rate = await checkOtpRate(c.env.DB, phone);
+  if (!rate.ok) fail(429, "rate_limited", rate.message);
+
   // Twilio Verify varsa: kodu Twilio üretir/gönderir (kendi tablomuzu kullanmayız).
   if (twilioConfigured(c.env)) {
     const r = await startVerification(c.env, phone);
@@ -127,10 +164,10 @@ authRoutes.post("/otp/request", async (c) => {
     .run();
 
   // Gerçek SMS (NetGSM) — secret varsa gönder. Secret yoksa (henüz kurulmadı) 500 atma;
-  // akış kırılmasın diye ok dön. Kodu prod'da asla döndürme.
-  const isProd = c.env.ENVIRONMENT === "production";
+  // akış kırılmasın diye ok dön.
   const sent = await sendSms(c.env, phone, `Satiyo dogrulama kodunuz: ${code}. Kimseyle paylasmayin.`);
-  const devCode = isProd ? undefined : code;
+  // devCode YALNIZ açıkça geliştirme ortamında dönür (ENVIRONMENT tanımsız/yanlış olsa bile sızdırmaz).
+  const devCode = c.env.ENVIRONMENT === "development" ? code : undefined;
   return c.json({ ok: true as const, devCode, delivered: sent });
 });
 

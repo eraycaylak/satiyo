@@ -13,6 +13,33 @@ export const meRoutes = new Hono<{ Bindings: Env; Variables: Variables }>();
 
 meRoutes.use("*", requireAuth);
 
+// --- Cihaz push token'ı (Expo Push) ---
+// Kayıt: token global UNIQUE; cihazda kullanıcı değişirse ON CONFLICT ile yeni kullanıcıya taşınır.
+meRoutes.post("/push-token", async (c) => {
+  const body = (await c.req.json().catch(() => ({}))) as { token?: unknown; platform?: unknown };
+  const token = typeof body.token === "string" ? body.token.trim() : "";
+  if (!token.startsWith("Expo")) badRequest("Geçersiz push token");
+  const platform = typeof body.platform === "string" ? body.platform.slice(0, 16) : null;
+  const user = c.get("user");
+  const ts = now();
+  await c.env.DB.prepare(
+    `INSERT INTO push_tokens (id, user_id, token, platform, created_at, updated_at)
+     VALUES (?,?,?,?,?,?)
+     ON CONFLICT(token) DO UPDATE SET user_id = excluded.user_id, platform = excluded.platform, updated_at = excluded.updated_at`,
+  ).bind(newId("psh"), user.id, token, platform, ts, ts).run();
+  return c.json({ ok: true });
+});
+
+// Silme: çıkışta bu cihazın token'ını kaldır (yalnızca kendi token'ını silebilir).
+meRoutes.delete("/push-token", async (c) => {
+  const body = (await c.req.json().catch(() => ({}))) as { token?: unknown };
+  const token = typeof body.token === "string" ? body.token.trim() : "";
+  if (!token) badRequest("Token gerekli");
+  const user = c.get("user");
+  await c.env.DB.prepare(`DELETE FROM push_tokens WHERE user_id = ? AND token = ?`).bind(user.id, token).run();
+  return c.json({ ok: true });
+});
+
 // Reklam kredisi cüzdanı — bakiye (kuruş) + son hareketler
 meRoutes.get("/wallet", async (c) => {
   const user = c.get("user");
@@ -73,6 +100,16 @@ meRoutes.patch("/", async (c) => {
 meRoutes.delete("/", async (c) => {
   const user = c.get("user");
   const uid = user.id;
+
+  // KVKK "unutulma": R2'deki medya baytlarını da sil. Önce anahtarları topla
+  // (satırlar birazdan silinecek — kimlik/ilan görselleri buketten de kalksın).
+  const imgRows = await c.env.DB.prepare(
+    `SELECT r2_key FROM listing_images WHERE owner_id = ?1 OR listing_id IN (SELECT id FROM listings WHERE seller_id = ?1)`,
+  ).bind(uid).all();
+  const r2Keys = (imgRows.results as { r2_key?: string }[])
+    .map((r) => r.r2_key)
+    .filter((k): k is string => typeof k === "string" && k.length > 0);
+
   // D1'de yabancı anahtar zorlaması kapalı olduğundan ilişkili tüm veriyi açıkça sil.
   await c.env.DB.batch([
     c.env.DB.prepare(`DELETE FROM messages WHERE sender_id = ?`).bind(uid),
@@ -89,9 +126,25 @@ meRoutes.delete("/", async (c) => {
     c.env.DB.prepare(`DELETE FROM notifications WHERE user_id = ?`).bind(uid),
     c.env.DB.prepare(`DELETE FROM payments WHERE user_id = ?`).bind(uid),
     c.env.DB.prepare(`DELETE FROM blocks WHERE blocker_id = ?1 OR blocked_id = ?1`).bind(uid),
+    // KVKK: hassas kimlik verisi (hash'li TC + belge referansları), push token, analitik, takip, cüzdan
+    c.env.DB.prepare(`DELETE FROM store_applications WHERE user_id = ?`).bind(uid),
+    c.env.DB.prepare(`DELETE FROM push_tokens WHERE user_id = ?`).bind(uid),
+    c.env.DB.prepare(`DELETE FROM events WHERE user_id = ?`).bind(uid),
+    c.env.DB.prepare(`DELETE FROM follows WHERE follower_id = ?1 OR following_id = ?1`).bind(uid),
+    c.env.DB.prepare(`DELETE FROM credit_ledger WHERE user_id = ?`).bind(uid),
     c.env.DB.prepare(`DELETE FROM sessions WHERE user_id = ?`).bind(uid),
     c.env.DB.prepare(`DELETE FROM users WHERE id = ?`).bind(uid),
   ]);
+
+  // R2 medya baytlarını sil (best-effort; DB kaydı gitti, dosya kalmasın). R2 toplu silme destekler.
+  if (r2Keys.length) {
+    try {
+      await c.env.MEDIA.delete(r2Keys);
+    } catch {
+      // Bucket silme hatası ana silme işlemini bozmasın.
+    }
+  }
+
   return c.json({ ok: true as const });
 });
 

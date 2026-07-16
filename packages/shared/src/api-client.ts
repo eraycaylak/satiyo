@@ -115,7 +115,11 @@ export class SatiyoClient {
 
   // --- Listings ---
   search(filters: SearchFilters) {
-    return this.request<Paginated<Listing>>("/listings", { query: filters as Record<string, unknown> });
+    // attrs bir nesne; query string'ine JSON olarak kodlanır (backend parse eder).
+    const { attrs, ...rest } = filters;
+    const query: Record<string, unknown> = { ...rest };
+    if (attrs && Object.keys(attrs).length > 0) query.attrs = JSON.stringify(attrs);
+    return this.request<Paginated<Listing>>("/listings", { query });
   }
   getListing(id: string) {
     return this.request<Listing>(`/listings/${id}`);
@@ -266,6 +270,20 @@ export class SatiyoClient {
   }
   markNotificationsRead() {
     return this.request<{ ok: true }>("/me/notifications/read", { method: "POST" });
+  }
+
+  // --- Push token (cihaz bildirimi) ---
+  registerPushToken(token: string, platform: string) {
+    return this.request<{ ok: true }>("/me/push-token", {
+      method: "POST",
+      body: JSON.stringify({ token, platform }),
+    });
+  }
+  removePushToken(token: string) {
+    return this.request<{ ok: true }>("/me/push-token", {
+      method: "DELETE",
+      body: JSON.stringify({ token }),
+    });
   }
 
   // --- App config (zorunlu güncelleme; public) ---

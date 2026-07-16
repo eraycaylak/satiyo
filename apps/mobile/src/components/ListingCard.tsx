@@ -1,7 +1,8 @@
-import { Image, Pressable, Text, View } from "react-native";
+import { Alert, Image, Pressable, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import type { Listing } from "@satiyo/shared";
 import { api } from "@/lib/client";
 import { useAuth } from "@/lib/auth";
@@ -11,15 +12,25 @@ import { formatPrice, locationText, timeAgo } from "@/lib/format";
 export function ListingCard({ listing, width }: { listing: Listing; width: number }) {
   const t = useTheme();
   const router = useRouter();
+  const qc = useQueryClient();
   const { user } = useAuth();
   const [fav, setFav] = useState(!!listing.favorited);
   const cover = listing.images[0]?.url;
 
+  // Favori bayrağı prop'tan değişirse (ör. cache tazelenince) yerel state'i senkronla.
+  useEffect(() => { setFav(!!listing.favorited); }, [listing.favorited]);
+
   async function toggleFav() {
     if (!user) return router.push("/giris");
-    const next = !fav; setFav(next);
-    try { next ? await api.addFavorite(listing.id) : await api.removeFavorite(listing.id); }
-    catch { setFav(!next); }
+    const next = !fav; setFav(next); // optimistik
+    try {
+      next ? await api.addFavorite(listing.id) : await api.removeFavorite(listing.id);
+      qc.invalidateQueries({ queryKey: ["favorites"] });
+      qc.invalidateQueries({ queryKey: ["listing", listing.id] });
+    } catch {
+      setFav(!next); // geri al
+      Alert.alert("Hata", "Favori güncellenemedi. Tekrar dene.");
+    }
   }
 
   return (

@@ -12,7 +12,7 @@ export default function ConversationsScreen() {
   const t = useTheme();
   const router = useRouter();
   const { user, loading } = useAuth();
-  const { data, isLoading } = useQuery({ queryKey: ["conversations"], queryFn: () => api.conversations(), enabled: !!user, refetchInterval: 15000 });
+  const { data, isLoading, isError, refetch } = useQuery({ queryKey: ["conversations"], queryFn: () => api.conversations(), enabled: !!user, refetchInterval: 15000 });
 
   if (loading) return <Loading />;
   if (!user) return (
@@ -25,6 +25,12 @@ export default function ConversationsScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: t.bg }}>
       {isLoading ? <Loading /> :
+        isError ? (
+          <View style={{ flex: 1, padding: space.lg, justifyContent: "center", gap: space.md }}>
+            <Empty icon="alert-circle-outline" text="Mesajlar yüklenemedi. İnternet bağlantını kontrol edip tekrar dene." />
+            <Button title="Yeniden dene" variant="ghost" onPress={() => refetch()} />
+          </View>
+        ) :
         !data || data.length === 0 ? <Empty icon="chatbubbles-outline" text="Henüz mesajın yok." /> :
         <FlatList
           data={data} keyExtractor={(c) => c.id}

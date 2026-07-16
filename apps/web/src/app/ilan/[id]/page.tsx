@@ -15,6 +15,10 @@ type OgListing = {
   images?: { url: string }[];
   city?: string | null;
   district?: string | null;
+  condition?: "new" | "used" | null;
+  status?: string | null; // active | reserved | sold | removed
+  categoryId?: string | null;
+  seller?: { name?: string | null; isStore?: boolean | null } | null;
 };
 
 function priceLabel(l: OgListing): string {
@@ -22,6 +26,39 @@ function priceLabel(l: OgListing): string {
   if (l.priceType === "trade") return "Takas";
   const tl = new Intl.NumberFormat("tr-TR").format(Math.round(l.price / 100));
   return `${tl} ₺${l.priceType === "negotiable" ? " (pazarlıklı)" : ""}`;
+}
+
+/** Google zengin sonuçları için Product + Offer yapısal verisi (schema.org). */
+function productLd(l: OgListing, url: string): Record<string, unknown> {
+  const cond = l.condition === "new" ? "https://schema.org/NewCondition" : "https://schema.org/UsedCondition";
+  const avail = l.status === "sold" || l.status === "removed"
+    ? "https://schema.org/SoldOut"
+    : "https://schema.org/InStock";
+  const ld: Record<string, unknown> = {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    name: l.title,
+    description: (l.description?.trim() || `${l.title} — Satıyo'da ikinci el ilan.`).slice(0, 500),
+    image: (l.images ?? []).map((i) => i.url).slice(0, 6),
+    itemCondition: cond,
+  };
+  if (l.categoryId) ld.category = l.categoryId;
+  // Takasta fiyat anlamlı değil → Offer eklenmez; ücretsizde 0.
+  if (l.priceType !== "trade") {
+    const offer: Record<string, unknown> = {
+      "@type": "Offer",
+      priceCurrency: "TRY",
+      price: l.priceType === "free" ? 0 : Math.round(l.price / 100),
+      availability: avail,
+      itemCondition: cond,
+      url,
+    };
+    if (l.seller?.name) {
+      offer.seller = { "@type": l.seller.isStore ? "Organization" : "Person", name: l.seller.name };
+    }
+    ld.offers = offer;
+  }
+  return ld;
 }
 
 async function fetchListing(id: string): Promise<OgListing | null> {
@@ -45,7 +82,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   }
   const loc = [l.city, l.district].filter(Boolean).join(", ");
   const title = `${l.title} — ${priceLabel(l)}${loc ? " · " + loc : ""}`;
-  const description = (l.description?.trim() || `${l.title} — Satıyo'da ikinci el ilan. Komşundan al, komşuna sat.`).slice(0, 160);
+  const description = (l.description?.trim() || `${l.title} — Satıyo'da ikinci el ilan. Evinde para var.`).slice(0, 160);
   const img = l.images?.[0]?.url;
   return {
     title,
@@ -71,8 +108,18 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 
 export default async function ListingPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  // generateMetadata ile aynı fetch (Next dedupe eder) → ekstra istek yok.
+  const l = await fetchListing(id);
+  const ld = l ? productLd(l, `${SITE}/ilan/${id}`) : null;
   return (
     <>
+      {ld ? (
+        <script
+          type="application/ld+json"
+          // JSON-LD; `<` kaçışı </script> breakout'unu önler.
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(ld).replace(/</g, "\\u003c") }}
+        />
+      ) : null}
       <AppBanner path={`/ilan/${id}`} />
       <ListingDetail id={id} />
     </>

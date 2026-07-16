@@ -8,11 +8,42 @@ import { radius, space, useTheme } from "@/lib/theme";
 export function CategoryPicker({ value, onSelect }: { value: string; onSelect: (id: string) => void }) {
   const t = useTheme();
   const [open, setOpen] = useState(false);
-  const [level, setLevel] = useState<string | null>(null);
-  const [q, setQ] = useState("");
 
   const path = value ? getCategoryPath(value) : [];
   const label = path.length ? path.map((c) => c.name).join(" › ") : "Kategori seç";
+
+  return (
+    <>
+      <Pressable onPress={() => setOpen(true)} style={{ flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: t.surface, borderWidth: 1, borderColor: t.border, borderRadius: radius.md, padding: 12 }}>
+        {path[0] ? <RootDot id={path[0].id} /> : <Ionicons name="grid-outline" size={20} color={t.muted} />}
+        <Text style={{ color: path.length ? t.text : t.muted, flex: 1 }} numberOfLines={1}>{label}</Text>
+        <Ionicons name="chevron-down" size={16} color={t.muted} />
+      </Pressable>
+
+      <CategoryPickerModal visible={open} onClose={() => setOpen(false)} value={value} onSelect={onSelect} />
+    </>
+  );
+}
+
+/**
+ * Kontrollü drill-down kategori modal'ı (tetikleyici gövdeden ayrı).
+ * Kendi tetikleyicisini çizmez; `visible` ile dışarıdan açılır. Filtrele ekranı
+ * bunu kendi kart-satırı tetikleyicisiyle YENİDEN KULLANIR.
+ */
+export function CategoryPickerModal({
+  visible,
+  onClose,
+  value,
+  onSelect,
+}: {
+  visible: boolean;
+  onClose: () => void;
+  value: string;
+  onSelect: (id: string) => void;
+}) {
+  const t = useTheme();
+  const [level, setLevel] = useState<string | null>(null);
+  const [q, setQ] = useState("");
 
   const results = useMemo(() => {
     const tq = foldTr(q.trim());
@@ -25,7 +56,7 @@ export function CategoryPicker({ value, onSelect }: { value: string; onSelect: (
   const items = q ? (results ?? []) : (level === null ? rootCategories() : getChildren(level));
   const crumbs = level ? getCategoryPath(level) : [];
 
-  function close() { setOpen(false); setQ(""); setLevel(null); }
+  function close() { setQ(""); setLevel(null); onClose(); }
   function pick(c: CategoryNode) {
     if (q) { onSelect(c.id); close(); return; }
     if (getChildren(c.id).length === 0) { onSelect(c.id); close(); }
@@ -33,52 +64,44 @@ export function CategoryPicker({ value, onSelect }: { value: string; onSelect: (
   }
 
   return (
-    <>
-      <Pressable onPress={() => setOpen(true)} style={{ flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: t.surface, borderWidth: 1, borderColor: t.border, borderRadius: radius.md, padding: 12 }}>
-        {path[0] ? <RootDot id={path[0].id} /> : <Ionicons name="grid-outline" size={20} color={t.muted} />}
-        <Text style={{ color: path.length ? t.text : t.muted, flex: 1 }} numberOfLines={1}>{label}</Text>
-        <Ionicons name="chevron-down" size={16} color={t.muted} />
-      </Pressable>
-
-      <Modal visible={open} transparent animationType="slide" onRequestClose={close}>
-        <Pressable onPress={close} style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "flex-end" }}>
-          <Pressable onPress={(e) => e.stopPropagation()} style={{ backgroundColor: t.surface, borderTopLeftRadius: radius.lg, borderTopRightRadius: radius.lg, padding: space.lg, gap: space.sm, height: "82%" }}>
-            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-              <Text style={{ fontSize: 17, fontWeight: "800", color: t.text }}>Kategori</Text>
-              <Pressable onPress={close} hitSlop={8}><Ionicons name="close" size={22} color={t.muted} /></Pressable>
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={close}>
+      <Pressable onPress={close} style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "flex-end" }}>
+        <Pressable onPress={(e) => e.stopPropagation()} style={{ backgroundColor: t.surface, borderTopLeftRadius: radius.lg, borderTopRightRadius: radius.lg, padding: space.lg, gap: space.sm, height: "82%" }}>
+          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+            <Text style={{ fontSize: 17, fontWeight: "800", color: t.text }}>Kategori</Text>
+            <Pressable onPress={close} hitSlop={8}><Ionicons name="close" size={22} color={t.muted} /></Pressable>
+          </View>
+          <TextInput value={q} onChangeText={setQ} placeholder="Ara (telefon, koltuk, bmw…)" placeholderTextColor={t.muted}
+            style={{ backgroundColor: t.bg, borderWidth: 1, borderColor: t.border, borderRadius: radius.md, padding: 12, color: t.text }} />
+          {!q && (
+            <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 4 }}>
+              <Pressable onPress={() => setLevel(null)}><Text style={{ color: t.brand, fontWeight: "600" }}>Tümü</Text></Pressable>
+              {crumbs.map((c) => (
+                <View key={c.id} style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                  <Text style={{ color: t.muted }}>›</Text>
+                  <Pressable onPress={() => setLevel(c.id)}><Text style={{ color: t.brand, fontWeight: "600" }}>{c.name}</Text></Pressable>
+                </View>
+              ))}
             </View>
-            <TextInput value={q} onChangeText={setQ} placeholder="Ara (telefon, koltuk, bmw…)" placeholderTextColor={t.muted}
-              style={{ backgroundColor: t.bg, borderWidth: 1, borderColor: t.border, borderRadius: radius.md, padding: 12, color: t.text }} />
-            {!q && (
-              <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 4 }}>
-                <Pressable onPress={() => setLevel(null)}><Text style={{ color: t.brand, fontWeight: "600" }}>Tümü</Text></Pressable>
-                {crumbs.map((c) => (
-                  <View key={c.id} style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-                    <Text style={{ color: t.muted }}>›</Text>
-                    <Pressable onPress={() => setLevel(c.id)}><Text style={{ color: t.brand, fontWeight: "600" }}>{c.name}</Text></Pressable>
-                  </View>
-                ))}
-              </View>
-            )}
-            <FlatList
-              data={items} keyExtractor={(c) => c.id} keyboardShouldPersistTaps="handled"
-              contentContainerStyle={{ gap: 6, paddingVertical: 4 }}
-              renderItem={({ item: c }) => {
-                const hasKids = !q && getChildren(c.id).length > 0;
-                return (
-                  <Pressable onPress={() => pick(c)} style={{ flexDirection: "row", alignItems: "center", gap: 10, borderWidth: 1, borderColor: t.border, borderRadius: radius.md, padding: 12 }}>
-                    {c.parentId === null && !q ? <RootDot id={c.id} /> : <Text style={{ fontSize: 18 }}>{c.icon}</Text>}
-                    <Text style={{ color: t.text, fontWeight: "600", flex: 1 }}>{c.name}</Text>
-                    {q ? <Text style={{ color: t.muted, fontSize: 11, maxWidth: 120 }} numberOfLines={1}>{getCategoryPath(c.id).slice(0, -1).map((p) => p.name).join(" › ")}</Text>
-                      : hasKids ? <Ionicons name="chevron-forward" size={16} color={t.muted} /> : null}
-                  </Pressable>
-                );
-              }}
-            />
-          </Pressable>
+          )}
+          <FlatList
+            data={items} keyExtractor={(c) => c.id} keyboardShouldPersistTaps="handled"
+            contentContainerStyle={{ gap: 6, paddingVertical: 4 }}
+            renderItem={({ item: c }) => {
+              const hasKids = !q && getChildren(c.id).length > 0;
+              return (
+                <Pressable onPress={() => pick(c)} style={{ flexDirection: "row", alignItems: "center", gap: 10, borderWidth: 1, borderColor: t.border, borderRadius: radius.md, padding: 12 }}>
+                  {c.parentId === null && !q ? <RootDot id={c.id} /> : <Text style={{ fontSize: 18 }}>{c.icon}</Text>}
+                  <Text style={{ color: t.text, fontWeight: "600", flex: 1 }}>{c.name}</Text>
+                  {q ? <Text style={{ color: t.muted, fontSize: 11, maxWidth: 120 }} numberOfLines={1}>{getCategoryPath(c.id).slice(0, -1).map((p) => p.name).join(" › ")}</Text>
+                    : hasKids ? <Ionicons name="chevron-forward" size={16} color={t.muted} /> : null}
+                </Pressable>
+              );
+            }}
+          />
         </Pressable>
-      </Modal>
-    </>
+      </Pressable>
+    </Modal>
   );
 }
 

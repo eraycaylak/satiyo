@@ -46,7 +46,7 @@ export function SplashIntro() {
           Satıyo
         </Animated.Text>
         <Animated.Text style={[styles.tagline, { opacity: taglineOpacity, transform: [{ translateY: taglineY }] }]}>
-          Komşundan al, komşuna sat
+          Evinde para var
         </Animated.Text>
       </View>
     </Animated.View>

@@ -2,7 +2,7 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Satıyo — Komşundan al, komşuna sat",
+    name: "Satıyo — Evinde para var",
     short_name: "Satıyo",
     description: "Reklamsız, yerel odaklı ikinci-el ilan ve alışveriş platformu.",
     start_url: "/",

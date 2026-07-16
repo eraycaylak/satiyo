@@ -8,6 +8,7 @@ import { api } from "@/lib/client";
 import { useAuth } from "@/lib/auth";
 import { ListingCard, ListingCardSkeleton, ListingGrid } from "./ListingCard";
 import { CategoryRail } from "./CategoryRail";
+import { FilterSheet, activeFilterCount, parseAttrsParam } from "./FilterSheet";
 
 const MapView = dynamic(() => import("./MapView"), { ssr: false, loading: () => <div className="empty">Harita yükleniyor…</div> });
 
@@ -24,6 +25,7 @@ export function Explore() {
   const { user } = useAuth();
   const [savedMsg, setSavedMsg] = useState<string | null>(null);
   const [view, setView] = useState<"list" | "map">("list");
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   const q = params.get("q") ?? undefined;
   const categoryId = params.get("categoryId") ?? undefined;
@@ -35,11 +37,16 @@ export function Explore() {
     sort,
     minPrice: params.get("minPrice") ? Number(params.get("minPrice")) * 100 : undefined,
     maxPrice: params.get("maxPrice") ? Number(params.get("maxPrice")) * 100 : undefined,
+    city: params.get("city") ?? undefined,
     condition: (params.get("condition") as "new" | "used") ?? undefined,
     sellerType: (params.get("sellerType") as "individual" | "store") ?? undefined,
+    boostedOnly: params.get("boosted") === "1" || undefined,
+    attrs: parseAttrsParam(params.get("attrs")),
     withImageOnly: params.get("withImageOnly") === "1" || undefined,
     pageSize: 24,
   };
+
+  const filterCount = activeFilterCount(params);
 
   const { data, isLoading, isError, isFetching } = useQuery({
     queryKey: ["listings", filters],
@@ -68,7 +75,7 @@ export function Explore() {
       setTimeout(() => setSavedMsg(null), 3500);
     } catch { setSavedMsg("Kaydedilemedi."); }
   }
-  const hasCriteria = !!(q || categoryId || filters.minPrice || filters.maxPrice || filters.condition);
+  const hasCriteria = !!(q || categoryId || filterCount);
 
   const activeCat = categoryId ? CATEGORIES.find((c) => c.id === categoryId) : null;
 
@@ -99,16 +106,18 @@ export function Explore() {
           {data && <span className="muted" style={{ fontWeight: 400, fontSize: 14 }}> · {data.total} ilan</span>}
         </h1>
         <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
-          <input className="input" style={{ width: 96 }} type="number" placeholder="En az ₺"
-            defaultValue={params.get("minPrice") ?? ""} onBlur={(e) => setParam("minPrice", e.target.value || undefined)} />
-          <input className="input" style={{ width: 96 }} type="number" placeholder="En çok ₺"
-            defaultValue={params.get("maxPrice") ?? ""} onBlur={(e) => setParam("maxPrice", e.target.value || undefined)} />
-          <select className="input" style={{ width: "auto" }} value={params.get("condition") ?? ""} onChange={(e) => setParam("condition", e.target.value || undefined)}>
-            <option value="">Tüm durumlar</option>
-            <option value="new">Sıfır</option>
-            <option value="used">İkinci el</option>
-          </select>
-          <select className="input" style={{ width: "auto" }} value={sort} onChange={(e) => setParam("sort", e.target.value)}>
+          <button
+            className="btn"
+            style={{ borderColor: "var(--brand)", color: "var(--brand-600)" }}
+            onClick={() => setFiltersOpen(true)}
+            aria-haspopup="dialog"
+            aria-expanded={filtersOpen}
+          >
+            <FilterIcon />
+            Filtrele
+            {filterCount > 0 && <span className="filter-badge">{filterCount}</span>}
+          </button>
+          <select className="input" style={{ width: "auto" }} value={sort} onChange={(e) => setParam("sort", e.target.value)} aria-label="Sıralama">
             {SORTS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
           </select>
           {hasCriteria && <button className="btn btn-ghost" onClick={saveSearch}>🔔 Aramayı kaydet</button>}
@@ -141,6 +150,18 @@ export function Explore() {
           </div>
         )
       )}
+
+      <FilterSheet open={filtersOpen} onClose={() => setFiltersOpen(false)} />
     </div>
+  );
+}
+
+function FilterIcon() {
+  return (
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" aria-hidden="true">
+      <line x1="4" y1="7" x2="20" y2="7" />
+      <line x1="7" y1="12" x2="17" y2="12" />
+      <line x1="10" y1="17" x2="14" y2="17" />
+    </svg>
   );
 }

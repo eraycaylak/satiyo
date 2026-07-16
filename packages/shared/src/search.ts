@@ -128,7 +128,13 @@ export interface SearchFilters {
   sellerType?: "individual" | "store";
   priceTypes?: string[];
   withImageOnly?: boolean;
+  /** Yalnızca öne çıkan (boost'lu) ilanlar. */
+  boostedOnly?: boolean;
+  /** Kategori özniteliği eşitlik filtreleri (ör. { marka: "BMW", yakit: "Dizel" }). */
+  attrs?: Record<string, string>;
   sort?: SortOption;
   page?: number;
   pageSize?: number;
+  lat?: number;
+  lng?: number;
 }

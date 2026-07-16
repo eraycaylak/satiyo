@@ -12,14 +12,22 @@
     "preview": {
       "distribution": "internal",
       "channel": "preview",
-      "android": { "buildType": "apk" },
-      "env": { "EXPO_PUBLIC_API_BASE": "https://api.satiyo.app" }
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_BASE": "https://api.satiyo.app"
+      }
     },
     "production": {
       "autoIncrement": true,
       "channel": "production",
-      "ios": { "image": "latest" },
-      "env": { "EXPO_PUBLIC_API_BASE": "https://api.satiyo.app" }
+      "ios": {
+        "image": "latest"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_BASE": "https://api.satiyo.app"
+      }
     }
   },
   "submit": {
@@ -31,8 +39,8 @@
         "ascApiKeyIssuerId": "80e03d5d-daf3-4f22-817e-fc668b110aeb"
       },
       "android": {
-        "serviceAccountKeyPath": "/Users/x/Downloads/gen-lang-client-0686176337-ea94050f4bc7.json",
-        "track": "internal"
+        "serviceAccountKeyPath": "/Users/x/Downloads/gen-lang-client-0686176337-ed6871c911da.json",
+        "track": "alpha"
       }
     }
   }

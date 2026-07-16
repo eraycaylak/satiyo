@@ -423,7 +423,8 @@ export function WalletsSection() {
 export function ModerationSection() {
   const qc = useQueryClient();
   const [tab, setTab] = useState<"reports" | "ai">("reports");
-  const { data: reports, isLoading } = useQuery({ queryKey: ["admin-reports"], queryFn: () => api.adminReports("open"), enabled: tab === "reports" });
+  const [reportStatus, setReportStatus] = useState<"open" | "resolved">("open");
+  const { data: reports, isLoading } = useQuery({ queryKey: ["admin-reports", reportStatus], queryFn: () => api.adminReports(reportStatus), enabled: tab === "reports" });
   const { data: aiData, isLoading: aiLoading } = useQuery({ queryKey: ["admin-moderation-queue"], queryFn: () => api.adminModerationQueue(), enabled: tab === "ai" });
 
   async function resolve(rid: string, targetType: string, targetId: string, remove: boolean) {
@@ -449,26 +450,36 @@ export function ModerationSection() {
       </div>
 
       {tab === "reports" ? (
-        isLoading ? <SkList /> :
-          !reports || reports.length === 0 ? <div className="cc-empty">Açık şikayet yok 🎉</div> : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {reports.map((r) => (
-                <div key={r.id} className="cc-panel" style={{ padding: 12 }}>
-                  <div className="cc-panel-h" style={{ marginBottom: 8 }}>
-                    <span className="cc-tag">{r.targetType}</span>
-                    <span className="hint">{timeAgo(r.createdAt)}</span>
+        <>
+          <div className="cc-seg" style={{ marginBottom: 12 }}>
+            <button className={reportStatus === "open" ? "on" : ""} onClick={() => setReportStatus("open")}>Açık</button>
+            <button className={reportStatus === "resolved" ? "on" : ""} onClick={() => setReportStatus("resolved")}>Çözülenler</button>
+          </div>
+          {isLoading ? <SkList /> :
+            !reports || reports.length === 0 ? <div className="cc-empty">{reportStatus === "open" ? "Açık şikayet yok 🎉" : "Çözülmüş şikayet yok."}</div> : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {reports.map((r) => (
+                  <div key={r.id} className="cc-panel" style={{ padding: 12 }}>
+                    <div className="cc-panel-h" style={{ marginBottom: 8 }}>
+                      <span className="cc-tag">{r.targetType}</span>
+                      <span className="hint">{timeAgo(r.createdAt)}</span>
+                    </div>
+                    <div style={{ fontWeight: 700, fontSize: 13.5 }}>{r.reason}</div>
+                    <div className="cc-sub" style={{ margin: "3px 0 10px" }}>Bildiren: {r.reporterName} · Hedef: {r.targetId}</div>
+                    {reportStatus === "open" ? (
+                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                        <button className="cc-btn" onClick={() => resolve(r.id, r.targetType, r.targetId, false)}>Çözüldü işaretle</button>
+                        {r.targetType === "listing" && <button className="cc-btn danger" onClick={() => resolve(r.id, r.targetType, r.targetId, true)}>İlanı kaldır + çöz</button>}
+                        {r.targetType === "user" && <button className="cc-btn danger" onClick={() => resolve(r.id, r.targetType, r.targetId, true)}>Kullanıcıyı banla + çöz</button>}
+                      </div>
+                    ) : (
+                      <span className="cc-tag" style={{ opacity: 0.75 }}>✓ Çözüldü</span>
+                    )}
                   </div>
-                  <div style={{ fontWeight: 700, fontSize: 13.5 }}>{r.reason}</div>
-                  <div className="cc-sub" style={{ margin: "3px 0 10px" }}>Bildiren: {r.reporterName} · Hedef: {r.targetId}</div>
-                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                    <button className="cc-btn" onClick={() => resolve(r.id, r.targetType, r.targetId, false)}>Çözüldü işaretle</button>
-                    {r.targetType === "listing" && <button className="cc-btn danger" onClick={() => resolve(r.id, r.targetType, r.targetId, true)}>İlanı kaldır + çöz</button>}
-                    {r.targetType === "user" && <button className="cc-btn danger" onClick={() => resolve(r.id, r.targetType, r.targetId, true)}>Kullanıcıyı banla + çöz</button>}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )
+                ))}
+              </div>
+            )}
+        </>
       ) : (
         aiLoading ? <SkList /> :
           aiItems.length === 0 ? <div className="cc-empty">AI riskli ilan işaretlemedi 🎉<br /><span className="cc-sub">Yeni ilanlar oluşturuldukça Gemini otomatik tarar.</span></div> : (

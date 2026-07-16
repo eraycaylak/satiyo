@@ -32,15 +32,15 @@ const WEBSITE_LD = {
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    default: "Satıyo — Komşundan al, komşuna sat",
+    default: "Satıyo — Evinde para var",
     template: "%s · Satıyo",
   },
   description:
-    "Reklamsız, yerel odaklı ikinci-el ilan ve alışveriş platformu. Komşundan al, komşuna sat.",
+    "Reklamsız, yerel odaklı ikinci-el ilan ve alışveriş platformu. Evinde para var.",
   applicationName: "Satıyo",
   keywords: [
     "ikinci el", "satılık", "ilan", "pazaryeri", "yerel", "reklamsız",
-    "Satıyo", "sahibinden alternatifi", "letgo alternatifi", "komşundan al",
+    "Satıyo", "sahibinden alternatifi", "letgo alternatifi", "evinde para var",
   ],
   authors: [{ name: "Satıyo" }],
   creator: "Satıyo",
@@ -52,14 +52,14 @@ export const metadata: Metadata = {
     locale: "tr_TR",
     url: SITE_URL,
     siteName: "Satıyo",
-    title: "Satıyo — Komşundan al, komşuna sat",
+    title: "Satıyo — Evinde para var",
     description:
       "Reklamsız, yerel odaklı ikinci-el ilan ve alışveriş platformu.",
     images: [{ url: "/logo.png", width: 1200, height: 630, alt: "Satıyo" }],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Satıyo — Komşundan al, komşuna sat",
+    title: "Satıyo — Evinde para var",
     description: "Reklamsız, yerel odaklı ikinci-el ilan ve alışveriş platformu.",
     images: ["/logo.png"],
   },

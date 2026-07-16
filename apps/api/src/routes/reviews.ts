@@ -30,12 +30,22 @@ reviewRoutes.post("/", requireAuth, async (c) => {
   if (listing!.status !== "sold" && listing!.status !== "reserved") {
     badRequest("Değerlendirme için önce satışın tamamlanması gerekir");
   }
-  // Alıcı kaydı (sold_to) varsa yalnız satıcı ↔ o alıcı birbirini değerlendirebilir
+  // Değerlendirme hedefi gerçek işlem karşı-tarafı olmalı (keyfi trust_score şişirme engeli).
   const soldTo = (listing!.sold_to as string | null) ?? null;
   if (soldTo) {
+    // Alıcı kaydı (sold_to) varsa yalnız satıcı ↔ o alıcı birbirini değerlendirebilir
     const okPair = (isSeller && input.reviewedId === soldTo)
       || (user.id === soldTo && input.reviewedId === listing!.seller_id);
     if (!okPair) forbidden("Bu satışın tarafı değilsiniz");
+  } else if (isSeller) {
+    // sold_to yoksa: satıcı yalnız bu ilanda kendisiyle konuşmuş gerçek bir alıcıyı değerlendirebilir
+    const buyerConv = await c.env.DB.prepare(
+      `SELECT 1 FROM conversations WHERE listing_id = ? AND seller_id = ? AND buyer_id = ?`,
+    ).bind(input.listingId, user.id, input.reviewedId).first();
+    if (!buyerConv) forbidden("Bu kullanıcıyla bu ilanda bir işleminiz yok");
+  } else {
+    // sold_to yoksa: alıcı yalnız ilanın satıcısını değerlendirebilir
+    if (input.reviewedId !== listing!.seller_id) forbidden("Yalnız ilanın satıcısını değerlendirebilirsiniz");
   }
 
   try {

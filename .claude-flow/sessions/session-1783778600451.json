@@ -1,0 +1,14 @@
+{
+  "id": "session-1783778600451",
+  "startedAt": "2026-07-11T14:03:20.451Z",
+  "cwd": "/Users/x/Desktop/Github-Projelerim/zınk-letgoclone/zink",
+  "context": {},
+  "metrics": {
+    "edits": 8,
+    "commands": 0,
+    "tasks": 0,
+    "errors": 0
+  },
+  "endedAt": "2026-07-11T15:13:20.496Z",
+  "duration": 4200046
+}

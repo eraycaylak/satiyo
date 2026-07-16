@@ -30,7 +30,7 @@ export default function NotificationsScreen() {
 
   useEffect(() => {
     if (user && data && data.some((n) => !n.readAt)) {
-      api.markNotificationsRead().then(() => qc.invalidateQueries({ queryKey: ["notifications"] }));
+      api.markNotificationsRead().then(() => qc.invalidateQueries({ queryKey: ["notifications"] })).catch(() => {});
     }
   }, [user, data, qc]);
 
