@@ -124,6 +124,10 @@ export class SatiyoClient {
   getListing(id: string) {
     return this.request<Listing>(`/listings/${id}`);
   }
+  /** İlan için kısa paylaşım linki (satiyo.app/s/<code>) — varsa döner, yoksa üretir. */
+  shareLink(id: string) {
+    return this.request<{ code: string | null; url: string }>(`/listings/${id}/share`, { method: "POST" });
+  }
   createListing(input: unknown) {
     return this.request<Listing>("/listings", { method: "POST", body: JSON.stringify(input) });
   }

@@ -102,10 +102,16 @@ export function ListingDetail({ id }: { id: string }) {
     alert("Şikayetiniz alındı, teşekkürler.");
   }
 
-  function share() {
-    const url = window.location.href;
+  async function share() {
+    let url = window.location.href;
+    try {
+      const r = await api.shareLink(id);
+      if (r?.url) url = r.url;
+    } catch {
+      /* kısa link alınamazsa uzun linke düş */
+    }
     if (navigator.share) navigator.share({ title: listing!.title, url }).catch(() => {});
-    else { navigator.clipboard.writeText(url); alert("Bağlantı kopyalandı"); }
+    else { navigator.clipboard.writeText(url); alert("Kısa bağlantı kopyalandı"); }
   }
 
   async function doBoost(packageId: string) {

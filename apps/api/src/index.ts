@@ -71,6 +71,17 @@ app.get("/config", async (c) => {
   });
 });
 
+// Kısa link çözümleme (public) — kod -> ilan id. Web /s/<code> bunu kullanır.
+app.get("/links/:code", async (c) => {
+  const code = c.req.param("code");
+  const r = await c.env.DB
+    .prepare(`SELECT listing_id FROM short_links WHERE code = ?`)
+    .bind(code)
+    .first<{ listing_id: string }>();
+  if (!r) return c.json({ error: "not_found" }, 404);
+  return c.json({ listingId: r.listing_id });
+});
+
 // R2 medya servisi (MVP — prod'da CDN/Images önüne alınır)
 app.get("/media/*", async (c) => {
   const key = c.req.path.replace(/^\/media\//, "");

@@ -58,6 +58,7 @@ export function Header() {
             onChange={(e) => setQ(e.target.value)}
           />
         </form>
+        <Link href="/ilan-ver" className="btn btn-primary hdr-sell">+ {t("nav.sell")}</Link>
         <div className="hdr-actions">
           <LangToggle />
           <ThemeToggle />
@@ -69,7 +70,6 @@ export function Header() {
           ) : (
             <Link href="/giris" className="btn btn-ghost">{t("nav.login")}</Link>
           )}
-          <Link href="/ilan-ver" className="btn btn-primary">+ {t("nav.sell")}</Link>
         </div>
       </div>
     </header>

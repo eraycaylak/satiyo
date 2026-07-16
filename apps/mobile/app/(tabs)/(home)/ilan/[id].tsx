@@ -191,7 +191,7 @@ export default function ListingDetailScreen() {
         )}
 
         <View style={{ flexDirection: "row", gap: 8 }}>
-          <Button title="Paylaş" variant="ghost" onPress={() => { const u = `https://satiyo.app/ilan/${id}`; Share.share({ message: `${listing.title} — ${formatPrice(listing.price, listing.priceType)} · Satıyo'da: ${u}`, url: u }); }} style={{ flex: 1 }} />
+          <Button title="Paylaş" variant="ghost" onPress={async () => { let u = `https://satiyo.app/ilan/${id}`; try { const r = await api.shareLink(String(id)); if (r?.url) u = r.url; } catch {} Share.share({ message: `${listing.title} — ${formatPrice(listing.price, listing.priceType)} · Satıyo'da: ${u}`, url: u }); }} style={{ flex: 1 }} />
           {!isOwner && <Button title="Şikayet" variant="ghost" onPress={report} style={{ flex: 1 }} />}
         </View>
       </View>

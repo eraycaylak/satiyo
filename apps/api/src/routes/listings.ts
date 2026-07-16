@@ -418,3 +418,43 @@ listingRoutes.get("/:id/buyers", requireAuth, async (c) => {
   ).bind(id).all();
   return c.json((rows.results as Record<string, unknown>[]).map(rowToSeller));
 });
+
+// ============ POST /listings/:id/share — kısa paylaşım linki ============
+// İlana ait kısa kod varsa döner, yoksa üretir. satiyo.app/s/<code>
+const SHORT_ALPHABET = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
+function makeShortCode(len = 7): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(len));
+  let s = "";
+  for (let i = 0; i < len; i++) s += SHORT_ALPHABET[bytes[i]! % SHORT_ALPHABET.length];
+  return s;
+}
+
+listingRoutes.post("/:id/share", optionalAuth, async (c) => {
+  const id = c.req.param("id");
+  const row = await c.env.DB.prepare(`SELECT id FROM listings WHERE id = ? AND status != 'removed'`).bind(id).first();
+  if (!row) notFound("İlan bulunamadı");
+
+  const existing = await c.env.DB
+    .prepare(`SELECT code FROM short_links WHERE listing_id = ? LIMIT 1`)
+    .bind(id)
+    .first<{ code: string }>();
+  let code = existing?.code ?? null;
+
+  if (!code) {
+    for (let i = 0; i < 6 && !code; i++) {
+      const cand = makeShortCode(7);
+      try {
+        await c.env.DB
+          .prepare(`INSERT INTO short_links (code, listing_id, created_at) VALUES (?,?,?)`)
+          .bind(cand, id, now())
+          .run();
+        code = cand;
+      } catch {
+        // kod çakışması → tekrar dene
+      }
+    }
+  }
+  // Üretilemezse uzun linke düş (asla paylaşımı bozma)
+  const url = code ? `https://satiyo.app/s/${code}` : `https://satiyo.app/ilan/${id}`;
+  return c.json({ code, url });
+});

@@ -238,20 +238,38 @@ img { max-width: 100%; display: block; }
   display: flex; align-items: center; gap: var(--space-3);
   min-height: var(--header-h); flex-wrap: wrap; padding: 8px 0;
 }
-.hdr-logo { font-weight: 900; font-size: 22px; color: var(--brand); letter-spacing: -0.02em; flex-shrink: 0; }
-.hdr-search { flex: 1 1 100%; order: 3; margin: 0; }
+.hdr-logo { font-weight: 900; font-size: 22px; color: var(--brand); letter-spacing: -0.02em; flex-shrink: 0; order: 0; }
+.hdr-sell { order: 1; margin-left: auto; flex-shrink: 0; white-space: nowrap; }
+.hdr-search { flex: 1 1 100%; order: 2; margin: 0; }
 .hdr-actions {
   display: flex; align-items: center; gap: var(--space-2);
-  margin-left: auto; min-width: 0; overflow-x: auto;
+  order: 3; flex: 1 1 100%; min-width: 0; overflow-x: auto;
   -webkit-overflow-scrolling: touch; scrollbar-width: none;
 }
 .hdr-actions::-webkit-scrollbar { display: none; }
 .hdr-actions > * { flex-shrink: 0; }
 @media (min-width: 760px) {
   .hdr-inner { flex-wrap: nowrap; padding: 0; }
-  .hdr-search { flex: 1 1 auto; order: 0; max-width: 520px; }
-  .hdr-actions { overflow-x: visible; }
+  .hdr-logo { order: 1; }
+  .hdr-search { flex: 1 1 auto; order: 2; max-width: 520px; }
+  .hdr-actions { order: 3; flex: 0 0 auto; margin-left: auto; overflow-x: visible; }
+  .hdr-sell { order: 4; margin-left: 8px; }
 }
+
+/* İlan foto galerisi — parmakla kaydırılabilir (scroll-snap) */
+.gal-rail {
+  display: flex; overflow-x: auto; scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch; scrollbar-width: none;
+  border-radius: var(--radius); background: var(--surface-2);
+}
+.gal-rail::-webkit-scrollbar { display: none; }
+.gal-slide {
+  flex: 0 0 100%; scroll-snap-align: center; aspect-ratio: 4 / 3;
+  display: grid; place-items: center; overflow: hidden;
+}
+.gal-dots { display: flex; gap: 6px; justify-content: center; }
+.gal-dots span { width: 7px; height: 7px; border-radius: 999px; background: var(--border); transition: width .2s ease, background .2s ease; }
+.gal-dots span.on { background: var(--brand); width: 20px; }
 
 /* ===== Filtre paneli (Filtrele drawer) ===== */
 .filter-badge {
