@@ -1,0 +1,14 @@
+{
+  "id": "session-1784248746032",
+  "startedAt": "2026-07-17T00:39:06.032Z",
+  "cwd": "/Users/x/Desktop/Github-Projelerim/SatıyoApp/apps/mobile",
+  "context": {},
+  "metrics": {
+    "edits": 15,
+    "commands": 0,
+    "tasks": 0,
+    "errors": 0
+  },
+  "endedAt": "2026-07-18T09:58:20.512Z",
+  "duration": 119954480
+}

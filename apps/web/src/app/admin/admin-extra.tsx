@@ -21,7 +21,7 @@ export function FeaturedSection() {
             {items.map((l) => (
               <div key={l.id} className="cc-card">
                 <a className="thumb" href={`/ilan/${l.id}`} target="_blank" rel="noopener noreferrer">
-                  {l.images?.[0]?.url ? <img src={l.images[0].url} alt={l.title} /> : null}
+                  {l.images?.[0]?.url ? <img src={l.images[0].url.replace("/media/", "/media/thumb/200/")} loading="lazy" alt={l.title} /> : null}
                   <span className="cc-tag warn st">⭐ öne çıkan</span>
                 </a>
                 <div className="cbody">

@@ -2,7 +2,7 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { CATEGORIES, type SearchFilters, type SortOption } from "@satiyo/shared";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import { api } from "@/lib/client";
 import { useAuth } from "@/lib/auth";
@@ -26,6 +26,10 @@ export function Explore() {
   const [savedMsg, setSavedMsg] = useState<string | null>(null);
   const [view, setView] = useState<"list" | "map">("list");
   const [filtersOpen, setFiltersOpen] = useState(false);
+  // Taze karışım tohumu: mount sonrası üretilir (SSR hydration uyuşmazlığını önlemek için
+  // useEffect ile) → her ziyarette feed farklı karışır (mobil ile aynı davranış).
+  const [feedSeed, setFeedSeed] = useState<number | undefined>(undefined);
+  useEffect(() => { setFeedSeed(Math.floor(Math.random() * 1_000_000) + 1); }, []);
 
   const q = params.get("q") ?? undefined;
   const categoryId = params.get("categoryId") ?? undefined;
@@ -43,6 +47,7 @@ export function Explore() {
     boostedOnly: params.get("boosted") === "1" || undefined,
     attrs: parseAttrsParam(params.get("attrs")),
     withImageOnly: params.get("withImageOnly") === "1" || undefined,
+    seed: feedSeed,
     pageSize: 24,
   };
 

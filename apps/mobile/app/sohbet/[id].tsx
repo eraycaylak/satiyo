@@ -10,7 +10,9 @@ import { radius, space, useTheme } from "@/lib/theme";
 import { formatPrice, presenceText } from "@/lib/format";
 import { Loading } from "@/components/ui";
 
-const QUICK = ["Hâlâ satılık mı?", "Son fiyat?", "Ne zaman bakabilirim?", "Takas olur mu?"];
+// Hızlı yanıt formatları rol'e göre değişir: alıcı soru sorar, satıcı cevap verir.
+const QUICK_BUYER = ["Hâlâ satılık mı?", "Son fiyat?", "Ne zaman bakabilirim?", "Takas olur mu?"];
+const QUICK_SELLER = ["Evet, satılık", "Fiyatı sabit", "Pazarlık payı var", "Bugün müsaitim", "Takas düşünmüyorum"];
 const MAX_WS_RETRIES = 2;
 const WS_RETRY_DELAY = 1500; // ms — her denemede artan basit backoff
 
@@ -206,7 +208,7 @@ export default function ChatScreen() {
         }}
       />
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0, flexShrink: 0 }} contentContainerStyle={{ gap: 8, paddingHorizontal: space.lg, paddingVertical: 6 }}>
-        {QUICK.map((q) => (
+        {(conv && user.id === conv.sellerId ? QUICK_SELLER : QUICK_BUYER).map((q) => (
           <Pressable key={q} onPress={() => send(q)} style={{ borderWidth: 1, borderColor: t.border, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6 }}>
             <Text style={{ color: t.text, fontSize: 13 }}>{q}</Text>
           </Pressable>

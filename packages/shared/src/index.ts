@@ -3,6 +3,7 @@ export * from "./schemas";
 export * from "./search";
 export * from "./categories";
 export * from "./boost";
+export * from "./credit";
 export * from "./geo";
 export * from "./tr-provinces";
 export * from "./category-visual";

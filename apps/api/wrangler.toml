@@ -6,6 +6,15 @@ compatibility_flags = ["nodejs_compat"]
 # --- Özel domain (api.satiyo.app) ---
 routes = [{ pattern = "api.satiyo.app", custom_domain = true }]
 
+# --- Cron: günlük pazarlama/ikna bildirimleri (UTC; TR = UTC+3) ---
+[triggers]
+crons = [
+  "0 7 * * *",   # 10:00 TR — sabah
+  "0 10 * * *",  # 13:00 TR — öğle
+  "0 16 * * *",  # 19:00 TR — akşam
+  "30 18 * * *", # 21:30 TR — gece
+]
+
 # --- D1 (SQLite) ---
 [[d1_databases]]
 binding = "DB"

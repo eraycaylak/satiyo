@@ -1,5 +1,8 @@
-import * as StoreReview from "expo-store-review";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+
+// expo-store-review native modülü eski (OTA 1.1.0) binary'de yoksa güvenli düş.
+let StoreReview: typeof import("expo-store-review") | null = null;
+try { StoreReview = require("expo-store-review"); } catch { StoreReview = null; }
 
 // Kullanıcıdan App Store / Play puanı iste — yalnızca POZİTİF anlardan sonra
 // (ör. ilan yayınlama). Apple/Google zaten yılda birkaç kez gösterir; bu yüzden
@@ -12,6 +15,7 @@ const MIN_INTERVAL_MS = 60 * 24 * 60 * 60 * 1000; // en az 60 gün ara
 /** Pozitif bir aksiyondan sonra çağır. Uygun koşullarda native puanlama diyaloğunu açar. */
 export async function maybeAskReview(): Promise<void> {
   try {
+    if (!StoreReview) return; // modül yok (eski binary) → atla
     if (!(await StoreReview.isAvailableAsync())) return;
     if (!(await StoreReview.hasAction())) return;
 

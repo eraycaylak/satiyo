@@ -10,6 +10,8 @@ import { track } from "@/lib/analytics";
 import { useOtaUpdates } from "@/lib/ota";
 import { useAuth } from "@/lib/auth";
 import { usePushNotifications } from "@/lib/push";
+import { startRefCapture } from "@/lib/ref";
+import { ReferralFab } from "@/components/ReferralFab";
 
 // Oturum açıkken push token'ı kaydeder + bildirime dokununca yönlendirir.
 // Providers (AuthProvider) içinde render edilmeli.
@@ -35,6 +37,8 @@ function AnalyticsTracker() {
 
 export default function RootLayout() {
   useOtaUpdates();
+  // Davet linkiyle (?ref=CODE) açılışta referans kodunu yakala → ilk girişte kaydedilir.
+  useEffect(() => startRefCapture(), []);
   return (
     <SafeAreaProvider>
       <Providers>
@@ -60,10 +64,13 @@ export default function RootLayout() {
           <Stack.Screen name="bildirimler" options={{ title: "Bildirimler" }} />
           <Stack.Screen name="ilanlarim" options={{ title: "İlanlarım" }} />
           <Stack.Screen name="davet" options={{ title: "Arkadaşını Davet Et" }} />
+          <Stack.Screen name="kredi" options={{ title: "Kredi Yükle" }} />
           <Stack.Screen name="magaza-basvuru" options={{ title: "Mağaza Başvurusu" }} />
           <Stack.Screen name="kayitli-aramalar" options={{ title: "Kayıtlı Aramalarım" }} />
           <Stack.Screen name="engellenenler" options={{ title: "Engellenen Kullanıcılar" }} />
         </Stack>
+        {/* Ana ekranlarda sağ altta yüzen "Arkadaşını Davet Et" hediye kutusu */}
+        <ReferralFab />
         </VersionGate>
       </Providers>
     </SafeAreaProvider>

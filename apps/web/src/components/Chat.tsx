@@ -7,7 +7,9 @@ import { api, tokenStore } from "@/lib/client";
 import { useAuth } from "@/lib/auth";
 import { formatPrice, presenceText, timeAgo } from "@/lib/format";
 
-const QUICK = ["Hâlâ satılık mı?", "Son fiyat nedir?", "Ne zaman bakabilirim?", "Takas olur mu?"];
+// Hızlı yanıtlar rol'e göre: alıcı soru sorar, satıcı cevap verir.
+const QUICK_BUYER = ["Hâlâ satılık mı?", "Son fiyat nedir?", "Ne zaman bakabilirim?", "Takas olur mu?"];
+const QUICK_SELLER = ["Evet, satılık", "Fiyatı sabit", "Pazarlık payı var", "Bugün müsaitim", "Takas düşünmüyorum"];
 
 export function Chat({ conversationId }: { conversationId: string }) {
   const { user, loading } = useAuth();
@@ -147,7 +149,7 @@ export function Chat({ conversationId }: { conversationId: string }) {
       )}
 
       <div className="row" style={{ gap: 6, overflowX: "auto", padding: "8px 0" }}>
-        {QUICK.map((q) => <button key={q} className="badge" style={{ whiteSpace: "nowrap", cursor: "pointer", border: "1px solid var(--border)", padding: "6px 12px" }} onClick={() => send(q)}>{q}</button>)}
+        {(conv && user?.id === conv.sellerId ? QUICK_SELLER : QUICK_BUYER).map((q) => <button key={q} className="badge" style={{ whiteSpace: "nowrap", cursor: "pointer", border: "1px solid var(--border)", padding: "6px 12px" }} onClick={() => send(q)}>{q}</button>)}
       </div>
       <form className="row" style={{ gap: 8 }} onSubmit={(e) => { e.preventDefault(); send(text); }}>
         <input className="input grow" value={text} onChange={(e) => setText(e.target.value)} placeholder="Mesaj yaz…" />

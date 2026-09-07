@@ -18,7 +18,20 @@ export default function TabsLayout() {
         headerTintColor: t.text,
       }}
     >
-      <Tabs.Screen name="(home)" options={{ title: "Keşfet", headerShown: false, tabBarIcon: ({ color, size }) => <Ionicons name="search" size={size} color={color} /> }} />
+      <Tabs.Screen
+        name="(home)"
+        options={{ title: "Keşfet", headerShown: false, tabBarIcon: ({ color, size }) => <Ionicons name="search" size={size} color={color} /> }}
+        listeners={({ navigation }) => ({
+          // Keşfet'e basınca detay stack'inden feed köküne dön. Bazı cihazlarda default
+          // pop-to-top tutmuyordu → sekme odaktayken açıkça index'e git (deterministik).
+          tabPress: (e) => {
+            if (navigation.isFocused()) {
+              e.preventDefault();
+              navigation.navigate("(home)", { screen: "index" });
+            }
+          },
+        })}
+      />
       <Tabs.Screen name="favoriler" options={{ title: "Favoriler", tabBarIcon: ({ color, size, focused }) => <Ionicons name={focused ? "heart" : "heart-outline"} size={size} color={color} /> }} />
       <Tabs.Screen
         name="satis"

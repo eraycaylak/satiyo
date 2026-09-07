@@ -3,7 +3,7 @@ import { getBoostPackage, BOOST_PACKAGES } from "@satiyo/shared";
 import type { Env, Variables } from "../env.js";
 import { badRequest, fail, forbidden, notFound } from "../lib/http.js";
 import { newId, now } from "../lib/id.js";
-import { getPaymentProvider } from "../lib/payments.js";
+import { spendCredit, getBalance } from "../lib/credit.js";
 import { requireAuth } from "../middleware/auth.js";
 
 // Mount: /listings
@@ -23,21 +23,14 @@ boostRoutes.post("/:id/boost", requireAuth, async (c) => {
   if (listing!.seller_id !== user.id) forbidden("Bu ilan sizin değil");
   if (listing!.status !== "active") badRequest("Sadece aktif ilan öne çıkarılabilir");
 
-  // Ödeme al
-  const provider = getPaymentProvider(c.env);
-  const result = await provider.charge({
-    amount: pkg!.price, currency: "TRY", purpose: "boost", userId: user.id,
-    description: `Boost: ${pkg!.label}`,
-  });
-
-  const paymentId = newId("pay");
+  // Krediyle öde (kredi tek para birimi; IAP/iyzico ile yüklenir). Yetersizse 402 + bakiye.
   const ts = now();
-  await c.env.DB.prepare(
-    `INSERT INTO payments (id, user_id, amount, currency, provider, provider_ref, purpose, status, created_at)
-     VALUES (?,?,?,?,?,?, 'boost', ?, ?)`,
-  ).bind(paymentId, user.id, pkg!.price, "TRY", provider.name, result.providerRef, result.status, ts).run();
-
-  if (result.status !== "paid") fail(402, "payment_failed", "Ödeme alınamadı");
+  const spendKey = `boost:${id}:${ts}`;
+  const paid = await spendCredit(c.env.DB, user.id, pkg!.price, spendKey, { type: "boost", id });
+  if (!paid) {
+    const balance = await getBalance(c.env.DB, user.id);
+    fail(402, "insufficient_credit", `Yetersiz kredi. Gereken: ${pkg!.price / 100} ₺, bakiye: ${balance / 100} ₺`);
+  }
 
   // Mevcut boost'un üstüne ekle (kalan süreye)
   const base = Math.max(ts, (listing!.boosted_until as number) ?? 0);
@@ -45,9 +38,10 @@ boostRoutes.post("/:id/boost", requireAuth, async (c) => {
 
   await c.env.DB.batch([
     c.env.DB.prepare(`INSERT INTO boosts (id, listing_id, package, amount, starts_at, ends_at, payment_id) VALUES (?,?,?,?,?,?,?)`)
-      .bind(newId("bst"), id, pkg!.id, pkg!.price, ts, boostedUntil, paymentId),
+      .bind(newId("bst"), id, pkg!.id, pkg!.price, ts, boostedUntil, null),
     c.env.DB.prepare(`UPDATE listings SET boosted_until = ?, updated_at = ? WHERE id = ?`).bind(boostedUntil, ts, id),
   ]);
 
-  return c.json({ ok: true as const, boostedUntil, urgentBadge: pkg!.urgentBadge });
+  const balance = await getBalance(c.env.DB, user.id);
+  return c.json({ ok: true as const, boostedUntil, urgentBadge: pkg!.urgentBadge, balance });
 });

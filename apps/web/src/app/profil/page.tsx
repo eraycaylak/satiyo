@@ -6,12 +6,26 @@ import { STORE_MEMBERSHIP } from "@satiyo/shared";
 import { api } from "@/lib/client";
 import { useAuth } from "@/lib/auth";
 
+const WA_GREETING = "Merhaba, Satıyo hakkında yardım almak istiyorum.";
+
+/** Panelden gelen numaradan wa.me linki kurar (sadece rakam; boşsa null → satır gizlenir). */
+function whatsappUrl(raw: string | null | undefined): string | null {
+  const digits = (raw ?? "").replace(/\D/g, "");
+  if (digits.length < 10) return null;
+  return `https://wa.me/${digits}?text=${encodeURIComponent(WA_GREETING)}`;
+}
+
 export default function ProfilePage() {
   const { user, loading, logout, refresh } = useAuth();
   const router = useRouter();
   const [form, setForm] = useState({ name: "", city: "", district: "" });
   const [saved, setSaved] = useState(false);
   const [busy, setBusy] = useState(false);
+  // Destek WhatsApp numarası panelden gelir; boşsa satır gizlenir (mobil paritesi).
+  const [waUrl, setWaUrl] = useState<string | null>(null);
+  useEffect(() => {
+    api.config().then((c) => setWaUrl(whatsappUrl(c.supportWhatsapp))).catch(() => setWaUrl(null));
+  }, []);
 
   useEffect(() => {
     if (!loading && !user) router.replace("/giris?next=/profil");
@@ -69,6 +83,11 @@ export default function ProfilePage() {
         <Link href="/favoriler" className="btn btn-ghost grow">Favorilerim</Link>
       </div>
       <Link href="/davet" className="btn btn-ghost" style={{ marginTop: 8 }}>🎁 Arkadaşını Davet Et — Kredi Kazan</Link>
+      {waUrl ? (
+        <a href={waUrl} target="_blank" rel="noopener noreferrer" className="btn btn-ghost" style={{ marginTop: 8, color: "#25D366" }}>
+          💬 Satıyo Temsilcisi (WhatsApp)
+        </a>
+      ) : null}
       {user.isStore ? (
         <div className="card row" style={{ padding: "var(--space-4)", gap: 10, marginTop: 8 }}>
           <span className="badge badge-brand">Mağaza</span>

@@ -14,7 +14,7 @@ type Ref = { type: string; id: string };
 export async function grantCredit(
   db: D1Database,
   userId: string,
-  type: "signup_bonus" | "referral_reward" | "adjustment",
+  type: "signup_bonus" | "referral_reward" | "adjustment" | "iap_topup",
   amountMinor: number,
   idempotencyKey: string,
   ref?: Ref,

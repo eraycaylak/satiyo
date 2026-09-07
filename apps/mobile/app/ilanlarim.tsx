@@ -56,7 +56,7 @@ export default function MyListingsScreen() {
           renderItem={({ item: l }) => (
             <View style={{ flexDirection: "row", gap: space.md, backgroundColor: t.surface, borderWidth: 1, borderColor: t.border, borderRadius: radius.lg, padding: space.md }}>
               <Pressable onPress={() => router.push(`/ilan/${l.id}`)} style={{ width: 64, height: 64, borderRadius: radius.md, overflow: "hidden", backgroundColor: t.surface2 }}>
-                {l.images[0] ? <Image source={{ uri: l.images[0].url }} style={{ width: "100%", height: "100%" }} /> :
+                {l.images[0] ? <Image source={{ uri: l.images[0].url.replace("/media/", "/media/thumb/200/") }} style={{ width: "100%", height: "100%" }} /> :
                   <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}><Ionicons name="image-outline" size={24} color={t.muted} /></View>}
               </Pressable>
               <View style={{ flex: 1, gap: 3 }}>
@@ -66,11 +66,22 @@ export default function MyListingsScreen() {
                   <Badge label={LISTING_STATUS_LABELS[l.status]!} />
                   <Text style={{ color: t.muted, fontSize: 11 }}><Ionicons name="eye-outline" size={11} color={t.muted} /> {l.viewCount} · {timeAgo(l.createdAt)}</Text>
                 </View>
-                <View style={{ flexDirection: "row", gap: 14, marginTop: 4 }}>
-                  {(l.status === "active" || l.status === "reserved") && <Pressable onPress={() => setSoldFor({ id: l.id, title: l.title })} hitSlop={6}><Text style={{ color: t.success, fontWeight: "600", fontSize: 13 }}>Satıldı</Text></Pressable>}
-                  {l.status !== "removed" && <Pressable onPress={() => remove(l.id)} hitSlop={6}><Text style={{ color: t.danger, fontSize: 13 }}>Kaldır</Text></Pressable>}
-                </View>
               </View>
+              {/* Satıldı/Kaldır sağda dikey (altlı-üstlü) — kenarda + belirgin dokunma alanı → yanlışlıkla dokunma azalır */}
+              {l.status !== "removed" && (
+                <View style={{ justifyContent: "center", gap: 8 }}>
+                  {(l.status === "active" || l.status === "reserved") && (
+                    <Pressable onPress={() => setSoldFor({ id: l.id, title: l.title })}
+                      style={{ paddingHorizontal: 12, paddingVertical: 7, borderRadius: radius.md, backgroundColor: t.success + "18", borderWidth: 1, borderColor: t.success, alignItems: "center", minWidth: 76 }}>
+                      <Text style={{ color: t.success, fontWeight: "700", fontSize: 13 }}>Satıldı</Text>
+                    </Pressable>
+                  )}
+                  <Pressable onPress={() => remove(l.id)}
+                    style={{ paddingHorizontal: 12, paddingVertical: 7, borderRadius: radius.md, backgroundColor: t.danger + "12", borderWidth: 1, borderColor: t.danger, alignItems: "center", minWidth: 76 }}>
+                    <Text style={{ color: t.danger, fontWeight: "700", fontSize: 13 }}>Kaldır</Text>
+                  </Pressable>
+                </View>
+              )}
             </View>
           )}
         />}

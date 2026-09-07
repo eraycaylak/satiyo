@@ -184,6 +184,13 @@ export class SatiyoClient {
   getSeller(sellerId: string) {
     return this.request<PublicSeller>(`/sellers/${sellerId}`);
   }
+  // iOS IAP: satın alma makbuzunu sunucuya doğrulat + kredi yükle
+  verifyIap(receipt: string) {
+    return this.request<{ ok: true; grantedMinor: number; applied: string[]; balance: number; environment: string }>(
+      "/me/iap/verify",
+      { method: "POST", body: JSON.stringify({ receipt }) },
+    );
+  }
 
   // --- Uploads ---
   requestUpload(contentType: string) {

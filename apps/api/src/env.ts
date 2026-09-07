@@ -19,6 +19,10 @@ export interface Env {
   TWILIO_VERIFY_SERVICE_SID?: string;
   // AI ilan sihirbazı — Gemini Vision (foto → başlık/kategori/fiyat). `wrangler secret put GEMINI_API_KEY`.
   GEMINI_API_KEY?: string;
+  // iOS IAP makbuz doğrulama — App Store Connect App-Specific Shared Secret. `wrangler secret put APPLE_IAP_SHARED_SECRET`.
+  APPLE_IAP_SHARED_SECRET?: string;
+  // "true" ise üretimde sandbox makbuzlarına da kredi verilir (yalnız TestFlight testi için geçici aç, canlıda KAPALI tut).
+  APPLE_IAP_ALLOW_SANDBOX?: string;
 }
 
 export interface AuthUser {

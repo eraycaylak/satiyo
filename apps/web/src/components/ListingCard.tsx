@@ -59,11 +59,9 @@ export function ListingCard({ listing }: { listing: Listing }) {
 }
 
 export function ListingGrid({ children }: { children: React.ReactNode }) {
-  return (
-    <div style={{ display: "grid", gap: "var(--space-4)", gridTemplateColumns: "repeat(auto-fill, minmax(170px, 1fr))" }}>
-      {children}
-    </div>
-  );
+  // Sütun sayısı responsive (globals.css .listing-grid): mobilde 2 sütun (letgo/sahibinden
+  // gibi), daha geniş ekranlarda auto-fill. Inline style'a media query uygulanamadığı için class.
+  return <div className="listing-grid">{children}</div>;
 }
 
 export function ListingCardSkeleton() {

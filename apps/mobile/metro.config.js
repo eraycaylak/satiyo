@@ -7,8 +7,8 @@ const workspaceRoot = path.resolve(projectRoot, "../..");
 
 const config = getDefaultConfig(projectRoot);
 
-// Workspace kökünü izle (shared paketi orada)
-config.watchFolders = [workspaceRoot];
+// Expo'nun varsayılan watchFolders'ını KORUYUP workspace kökünü ekle (shared paketi orada).
+config.watchFolders = [...(config.watchFolders ?? []), workspaceRoot];
 config.resolver.nodeModulesPaths = [
   path.resolve(projectRoot, "node_modules"),
   path.resolve(workspaceRoot, "node_modules"),

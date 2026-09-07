@@ -84,6 +84,8 @@ const CONFIG_FIELDS: { key: string; label: string; hint: string }[] = [
   { key: "store_url_ios", label: "iOS Store URL", hint: "App Store linki." },
   { key: "store_url_android", label: "Android Store URL", hint: "Play/site linki." },
   { key: "update_message", label: "Güncelleme mesajı", hint: "Engelleme ekranında gösterilir." },
+  { key: "support_whatsapp", label: "Destek WhatsApp (Satıyo Temsilcisi)", hint: "Ülke koduyla, sadece rakam: ör. 905XXXXXXXXX. Boş bırakılırsa uygulamada WhatsApp satırı gizlenir." },
+  { key: "marketing_push_enabled", label: "Günlük pazarlama bildirimleri", hint: "Günün belirli saatlerinde (10:00 / 13:00 / 19:00 / 21:30 TR) otomatik slogan bildirimi. Durdurmak için 'false' yaz; açık için boş bırak veya 'true'." },
 ];
 
 export function VersionSection() {

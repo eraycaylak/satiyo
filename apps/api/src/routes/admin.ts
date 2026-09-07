@@ -6,6 +6,7 @@ import { adminConfigSchema, adminUpdateListingSchema, foldTr, getCategory, isVal
 import { getSetting, setSetting, getGeminiKey } from "../lib/settings.js";
 import { hydrateListings, rowToListing } from "../lib/db.js";
 import { notify } from "../lib/notify.js";
+import { sendMarketingSlot, MARKETING_SLOTS } from "../lib/marketing-push.js";
 import { moderateListingAI } from "../lib/moderation.js";
 import { requireAuth } from "../middleware/auth.js";
 import { requireAdmin } from "../middleware/admin.js";
@@ -389,7 +390,7 @@ adminRoutes.get("/conversations/:id/messages", async (c) => {
 });
 
 // --- C2: Zorunlu güncelleme config (oku/yaz) ---
-const CONFIG_KEYS = ["min_version_ios", "min_version_android", "latest_version_ios", "latest_version_android", "store_url_ios", "store_url_android", "update_message"];
+const CONFIG_KEYS = ["min_version_ios", "min_version_android", "latest_version_ios", "latest_version_android", "store_url_ios", "store_url_android", "update_message", "support_whatsapp", "marketing_push_enabled"];
 adminRoutes.get("/config", async (c) => {
   const out: Record<string, string> = {};
   for (const k of CONFIG_KEYS) out[k] = (await getSetting(c.env.DB, k)) ?? "";
@@ -582,4 +583,15 @@ adminRoutes.post("/broadcast", async (c) => {
   for (const tok of dead) { try { await c.env.DB.prepare(`DELETE FROM push_tokens WHERE token = ?`).bind(tok).run(); } catch { /* yut */ } }
 
   return c.json({ ok: true as const, pushSent: sent, tokens: tokens.length, inApp: inAppCount, cleaned: dead.length });
+});
+
+// Zamanlanmış pazarlama bildirimini ŞİMDİ test gönder (cron beklemeden). body: { slot }
+adminRoutes.post("/marketing-push-test", async (c) => {
+  const body = (await c.req.json().catch(() => ({}))) as { slot?: unknown };
+  const slot = typeof body.slot === "string" ? body.slot : "";
+  if (!MARKETING_SLOTS.includes(slot as (typeof MARKETING_SLOTS)[number])) {
+    badRequest(`slot şunlardan biri olmalı: ${MARKETING_SLOTS.join(", ")}`);
+  }
+  const res = await sendMarketingSlot(c.env, slot as (typeof MARKETING_SLOTS)[number], Date.now());
+  return c.json({ ok: true as const, ...res });
 });

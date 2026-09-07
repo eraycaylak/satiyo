@@ -3,6 +3,7 @@ import { Linking, Text, TextInput, View } from "react-native";
 import { useRouter } from "expo-router";
 import { api } from "@/lib/client";
 import { useAuth } from "@/lib/auth";
+import { readRef, clearRef } from "@/lib/ref";
 import { radius, space, useTheme } from "@/lib/theme";
 import { Badge, Button } from "@/components/ui";
 
@@ -31,7 +32,14 @@ export default function LoginScreen() {
   }
   async function verify() {
     setError(null); setBusy(true);
-    try { const s = await api.verifyOtp(full, code.replace(/\D/g, "")); await setSession(s.token, s.user); router.back(); }
+    try {
+      // Davet linkiyle geldiyse yakalanan referans kodunu ilet (yeni kullanıcıysa ödül tetikler).
+      const ref = (await readRef()) ?? undefined;
+      const s = await api.verifyOtp(full, code.replace(/\D/g, ""), ref);
+      await setSession(s.token, s.user);
+      if (ref) await clearRef(); // tek kullanımlık
+      router.back();
+    }
     catch (e) { setError((e as Error).message); } finally { setBusy(false); }
   }
   async function devLogin() {

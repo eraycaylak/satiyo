@@ -18,6 +18,7 @@ import { adminRoutes } from "./routes/admin.js";
 import { eventRoutes } from "./routes/events.js";
 import { aiRoutes } from "./routes/ai.js";
 import { getSetting } from "./lib/settings.js";
+import { runScheduledMarketingPush } from "./lib/marketing-push.js";
 
 export { ChatRoom } from "./durable/ChatRoom.js";
 
@@ -68,6 +69,8 @@ app.get("/config", async (c) => {
       android: (await g("store_url_android")) || "https://satiyo.app",
     },
     message: (await g("update_message")) || null,
+    // Satıyo temsilcisi WhatsApp — panelden girilir; boşsa uygulamada destek satırı gizlenir.
+    supportWhatsapp: (await g("support_whatsapp")) || null,
   });
 });
 
@@ -85,9 +88,13 @@ app.get("/links/:code", async (c) => {
 // Küçültülmüş görsel — /media/thumb/<genişlik>/<key>. Sosyal önizleme (og:image,
 // WhatsApp ~600KB üstünü reddeder) ve grid thumbnail'ları için. Photon (WASM) ile
 // resize edilir, edge cache'e yazılır. Decode edilemezse orijinal döner.
+// Sıkıştırma mantığı değişince artır: edge cache 1 yıl immutable tuttuğu için
+// anahtara sürüm eklemeden eski (ağır) kopyalar servis edilmeye devam eder.
+const THUMB_CACHE_VERSION = "2";
+
 app.get("/media/thumb/:w/*", async (c) => {
   const cache = caches.default;
-  const cacheKey = new Request(c.req.url);
+  const cacheKey = new Request(`${c.req.url}${c.req.url.includes("?") ? "&" : "?"}v=${THUMB_CACHE_VERSION}`);
   const hit = await cache.match(cacheKey);
   if (hit) return hit;
 
@@ -106,9 +113,15 @@ app.get("/media/thumb/:w/*", async (c) => {
     if (ow > w) {
       const nh = Math.round((img.get_height() * w) / ow);
       const resized = resize(img, w, nh, SamplingFilter.CatmullRom);
-      out = resized.get_bytes_jpeg(78);
+      out = new Uint8Array(resized.get_bytes_jpeg(78));
       resized.free();
       type = "image/jpeg";
+    } else if (type === "image/jpeg" || type === "image/jpg") {
+      // Genişlik zaten küçük ama dosya ağır olabilir (telefon kamerası dar+yüksek
+      // kaliteli JPEG üretiyor). Küçültme yoksa da q78'e yeniden kodla; kazanç
+      // yoksa orijinali koru. PNG/WebP'ye dokunma — saydamlık kaybolur.
+      const requant = new Uint8Array(img.get_bytes_jpeg(78));
+      if (requant.length < bytes.length) out = requant;
     }
     img.free();
   } catch {
@@ -169,4 +182,10 @@ app.onError((err, c) => {
 
 app.notFound((c) => c.json({ error: "not_found", message: "Kaynak bulunamadı" }, 404));
 
-export default app;
+// fetch + scheduled (Cron): günün belirli saatlerinde pazarlama/ikna bildirimleri.
+export default {
+  fetch: app.fetch,
+  async scheduled(event: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
+    ctx.waitUntil(runScheduledMarketingPush(env, event.cron, event.scheduledTime));
+  },
+};

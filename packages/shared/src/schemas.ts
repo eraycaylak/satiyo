@@ -71,6 +71,8 @@ export const searchQuerySchema = z.object({
   pageSize: z.coerce.number().int().min(1).max(50).default(20),
   lat: z.coerce.number().optional(),
   lng: z.coerce.number().optional(),
+  // Anasayfa taze-karışım tohumu (yalnız sorgusuz relevance akışında etkili).
+  seed: z.coerce.number().int().optional(),
 });
 
 export const sendMessageSchema = z.object({
@@ -106,6 +108,7 @@ export const adminConfigSchema = z.object({
     "min_version_ios", "min_version_android",
     "latest_version_ios", "latest_version_android",
     "store_url_ios", "store_url_android", "update_message",
+    "support_whatsapp", "marketing_push_enabled",
   ]),
   value: z.string().trim().max(500),
 });

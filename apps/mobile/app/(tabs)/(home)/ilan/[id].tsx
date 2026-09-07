@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Alert, Dimensions, Image, Linking, Modal, Pressable, ScrollView, Share, Text, TextInput, View } from "react-native";
+import { Alert, Dimensions, Image, Linking, Modal, Platform, Pressable, ScrollView, Share, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useQuery } from "@tanstack/react-query";
@@ -13,9 +13,21 @@ import { Badge, Button, Loading } from "@/components/ui";
 import { ListingsMap } from "@/components/ListingsMap";
 import ImageView from "react-native-image-viewing";
 
-// Dijital "Öne Çıkar" satın alımı App Store'da IAP gerektirir (Guideline 3.1.1).
-// IAP kurulana kadar mobilde gizli. Web'de aktif kalır.
-const SHOW_PAID_FEATURES = false;
+// Dijital "Öne Çıkar" krediyle harcanır; kredi App Store IAP ile yüklenir (Guideline 3.1.1).
+// iOS'ta aktif; Android'de IAP kurulana kadar gizli.
+const SHOW_PAID_FEATURES = Platform.OS === "ios";
+
+// expo-clipboard native modülü eski (OTA 1.1.0) binary'de yoksa güvenli düş.
+let Clipboard: typeof import("expo-clipboard") | null = null;
+try { Clipboard = require("expo-clipboard"); } catch { Clipboard = null; }
+
+/**
+ * Orijinaller 2-4 MB olabiliyor; galeri onları çekince detay çok geç açılıyordu.
+ * Sunucu tarafı yeniden boyutlandırma (/media/thumb/<genişlik>/) ile galeri ~100 KB'a düşer.
+ */
+function thumb(url: string, width: number): string {
+  return url.replace("/media/", `/media/thumb/${width}/`);
+}
 
 // Şikayet için hazır sebepler — cross-platform (Alert.prompt Android'de çalışmaz).
 const REPORT_REASONS = ["Sahte veya yanıltıcı ilan", "Yasaklı ürün", "Dolandırıcılık şüphesi", "Uygunsuz içerik", "Yinelenen ilan", "Diğer"];
@@ -35,6 +47,7 @@ export default function ListingDetailScreen() {
   const [reportOpen, setReportOpen] = useState(false);
   const [tab, setTab] = useState<"info" | "desc" | "loc">("info");
   const [shortUrl, setShortUrl] = useState<string | null>(null);
+  const [sharing, setSharing] = useState(false); // paylaşım sürerken çift-dokunma kilidi
   const W = Dimensions.get("window").width;
 
   const { data: listing, isLoading } = useQuery({
@@ -96,7 +109,18 @@ export default function ListingDetailScreen() {
       const r = await api.boostListing(id!, packageId);
       setBoostOpen(false);
       Alert.alert("Öne çıkarıldı ✦", `İlan ${new Date(r.boostedUntil).toLocaleDateString("tr-TR")} tarihine kadar üstte.`);
-    } catch (e) { Alert.alert("Hata", (e as Error).message); }
+    } catch (e) {
+      const msg = (e as Error).message;
+      if (/kredi/i.test(msg)) {
+        setBoostOpen(false);
+        Alert.alert("Yetersiz kredi", msg, [
+          { text: "Vazgeç", style: "cancel" },
+          { text: "Kredi Yükle", onPress: () => router.push("/kredi") },
+        ]);
+      } else {
+        Alert.alert("Hata", msg);
+      }
+    }
     finally { setBoosting(false); }
   }
   function report() {
@@ -114,15 +138,37 @@ export default function ListingDetailScreen() {
     return `https://satiyo.app/ilan/${id}`;
   }
 
-  async function shareTo(net: "wa" | "x" | "fb" | "native") {
-    const url = await getShareUrl();
-    const txt = `${listing!.title} — ${formatPrice(listing!.price, listing!.priceType)} · Satıyo'da`;
+  async function shareTo(net: "wa" | "x" | "fb" | "ig" | "native") {
+    if (sharing) return; // sürüyorsa çift-dokunmayı yok say (kilit hatası düzeltmesi)
+    setSharing(true);
     try {
-      if (net === "wa") await Linking.openURL(`https://wa.me/?text=${encodeURIComponent(`${txt}: ${url}`)}`);
-      else if (net === "x") await Linking.openURL(`https://twitter.com/intent/tweet?text=${encodeURIComponent(txt)}&url=${encodeURIComponent(url)}`);
-      else if (net === "fb") await Linking.openURL(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`);
-      else await Share.share({ message: `${txt}: ${url}`, url });
+      const url = await getShareUrl();
+      const txt = `${listing!.title} — ${formatPrice(listing!.price, listing!.priceType)} · Satıyo'da`;
+      if (net === "wa") {
+        // SADECE link → WhatsApp OG kartını (ad+foto+açıklama) kendisi açar; metni gömme (link/başlık tekrarı olmaz).
+        await Linking.openURL(`https://wa.me/?text=${encodeURIComponent(url)}`);
+      } else if (net === "x") {
+        await Linking.openURL(`https://twitter.com/intent/tweet?text=${encodeURIComponent(txt)}&url=${encodeURIComponent(url)}`);
+      } else if (net === "fb") {
+        await Linking.openURL(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`);
+      } else if (net === "ig") {
+        if (Clipboard) {
+          // Instagram linki hikayeye otomatik koydurmaz → linki kopyala + hikaye kamerasını aç; kullanıcı yapıştırır.
+          await Clipboard.setStringAsync(url);
+          const opened = await Linking.openURL("instagram://story-camera").then(() => true).catch(() => false);
+          if (!opened) await Linking.openURL("instagram://app").catch(() => Linking.openURL("https://apps.apple.com/app/instagram/id389801252").catch(() => {}));
+          Alert.alert("Link kopyalandı", "Instagram hikayene yapıştır 👍");
+        } else {
+          // clipboard yok (eski binary) → native paylaşım sayfası (Instagram orada da çıkar)
+          if (Platform.OS === "ios") await Share.share({ url }); else await Share.share({ message: url });
+        }
+      } else {
+        // native: SADECE link paylaş → alıcı uygulamada zengin OG kartı; başlık/link tekrarı önlenir.
+        if (Platform.OS === "ios") await Share.share({ url });
+        else await Share.share({ message: url });
+      }
     } catch { /* paylaşım iptal/başarısız — sessiz */ }
+    finally { setSharing(false); }
   }
   async function submitReport(reason: string) {
     setReportOpen(false);
@@ -138,15 +184,16 @@ export default function ListingDetailScreen() {
         <ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator={false}>
           {listing.images.length ? listing.images.map((img, i) => (
             <Pressable key={img.id} onPress={() => setViewerIndex(i)}>
-              <Image source={{ uri: img.url }} style={{ width: W, height: W, backgroundColor: t.surface2 }} resizeMode="cover" />
+              <Image source={{ uri: thumb(img.url, 1200) }} style={{ width: W, height: W, backgroundColor: t.surface2 }} resizeMode="cover" />
             </Pressable>
           )) : <View style={{ width: W, height: W, backgroundColor: t.surface2, alignItems: "center", justifyContent: "center" }}><Ionicons name="image-outline" size={56} color={t.muted} /></View>}
         </ScrollView>
         {/* Sahibinden tarzı: foto sağ üst — favori + WhatsApp + X + Facebook + paylaş */}
         <View style={{ position: "absolute", top: 12, right: 12, flexDirection: "row", gap: 8 }}>
           {[
-            { key: "fav", icon: (fav ? "heart" : "heart-outline") as const, color: t.danger, onPress: toggleFav },
+            { key: "fav", icon: fav ? ("heart" as const) : ("heart-outline" as const), color: t.danger, onPress: toggleFav },
             { key: "wa", icon: "logo-whatsapp" as const, color: "#25D366", onPress: () => shareTo("wa") },
+            { key: "ig", icon: "logo-instagram" as const, color: "#E4405F", onPress: () => shareTo("ig") },
             { key: "x", icon: "logo-twitter" as const, color: "#111", onPress: () => shareTo("x") },
             { key: "fb", icon: "logo-facebook" as const, color: "#1877F2", onPress: () => shareTo("fb") },
             { key: "share", icon: "share-outline" as const, color: "#333", onPress: () => shareTo("native") },
@@ -160,7 +207,7 @@ export default function ListingDetailScreen() {
       </View>
       {listing.images.length > 0 && (
         <ImageView
-          images={listing.images.map((im) => ({ uri: im.url }))}
+          images={listing.images.map((im) => ({ uri: thumb(im.url, 1600) }))}
           imageIndex={viewerIndex ?? 0}
           visible={viewerIndex !== null}
           onRequestClose={() => setViewerIndex(null)}

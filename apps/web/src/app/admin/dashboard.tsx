@@ -214,7 +214,7 @@ export function Dashboard({ stats, onNav }: { stats?: AdminStats; onNav: (t: str
                 <tr key={l.id}>
                   <td>
                     <div className="ad-tl">
-                      {l.images?.[0]?.url ? <img className="th" src={l.images[0].url} alt="" /> : <span className="th" />}
+                      {l.images?.[0]?.url ? <img className="th" src={l.images[0].url.replace("/media/", "/media/thumb/200/")} loading="lazy" alt="" /> : <span className="th" />}
                       <b>{l.title}</b>
                     </div>
                   </td>

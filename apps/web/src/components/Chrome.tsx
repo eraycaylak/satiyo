@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import { Header } from "@/components/Header";
 import { MobileNav } from "@/components/MobileNav";
 import { RefCapture } from "@/components/RefCapture";
+import { ReferralFab } from "@/components/ReferralFab";
 
 /**
  * Site kabuğu. /admin komuta merkezi kendi tam-ekran düzenini kullanır;
@@ -35,6 +36,7 @@ export function Chrome({ children }: { children: ReactNode }) {
         </div>
       </footer>
       <MobileNav />
+      <ReferralFab />
     </>
   );
 }

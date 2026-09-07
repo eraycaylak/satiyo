@@ -298,7 +298,7 @@ export function ListingsSection() {
               return (
                 <div key={l.id} className="cc-card">
                   <a className="thumb" href={`/ilan/${l.id}`} target="_blank" rel="noopener noreferrer">
-                    {img ? <img src={img} alt={l.title} /> : null}
+                    {img ? <img src={img.replace("/media/", "/media/thumb/200/")} loading="lazy" alt={l.title} /> : null}
                     <span className={`cc-tag ${st.c} st`}>{st.t}</span>
                   </a>
                   <div className="cbody">
@@ -490,7 +490,7 @@ export function ModerationSection() {
                 return (
                   <div key={l.id} className="cc-panel" style={{ padding: 12, display: "flex", gap: 12 }}>
                     <a href={`/ilan/${l.id}`} target="_blank" rel="noopener noreferrer" style={{ width: 60, height: 60, borderRadius: 10, overflow: "hidden", background: "var(--surface-2)", flexShrink: 0 }}>
-                      {l.images?.[0]?.url ? <img src={l.images[0].url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : null}
+                      {l.images?.[0]?.url ? <img src={l.images[0].url.replace("/media/", "/media/thumb/200/")} loading="lazy" alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : null}
                     </a>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>

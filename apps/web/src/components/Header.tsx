@@ -89,8 +89,13 @@ export function Header() {
   return (
     <header style={{ position: "sticky", top: 0, zIndex: 50, background: "var(--surface)", borderBottom: "1px solid var(--border)" }}>
       <div className="container hdr-inner">
-        <Link href="/" className="hdr-logo">
-          Satıyo
+        <Link href="/" className="hdr-logo" aria-label="Satıyo.App ana sayfa">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/satiyo-logo.png"
+            alt="Satıyo.App — Al · Sat · Kazan"
+            style={{ height: 30, width: "auto", display: "block", background: "#fff", borderRadius: 8, padding: "3px 7px" }}
+          />
         </Link>
         <form onSubmit={submit} className="hdr-search">
           <input

@@ -109,7 +109,7 @@ export default function CreateListingPage() {
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(96px,1fr))", gap: 8 }}>
               {images.map((img, i) => (
                 <div key={img.imageId} style={{ position: "relative", aspectRatio: "1", borderRadius: "var(--radius-sm)", overflow: "hidden", background: "var(--surface-2)" }}>
-                  <img src={img.url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                  <img src={img.url.replace("/media/", "/media/thumb/200/")} loading="lazy" alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                   {i === 0 && <span className="badge badge-brand" style={{ position: "absolute", bottom: 4, left: 4, fontSize: 10 }}>Kapak</span>}
                   <button onClick={() => setImages(images.filter((x) => x.imageId !== img.imageId))}
                     style={{ position: "absolute", top: 2, right: 2, border: "none", borderRadius: 999, width: 22, height: 22, background: "rgba(0,0,0,.6)", color: "#fff" }}>×</button>
@@ -201,7 +201,7 @@ export default function CreateListingPage() {
           <>
             <h2 style={{ margin: 0 }}>Önizleme</h2>
             <div className="row" style={{ gap: 12 }}>
-              {images[0] && <img src={images[0].url} alt="" style={{ width: 110, height: 110, objectFit: "cover", borderRadius: "var(--radius)" }} />}
+              {images[0] && <img src={images[0].url.replace("/media/", "/media/thumb/200/")} loading="lazy" alt="" style={{ width: 110, height: 110, objectFit: "cover", borderRadius: "var(--radius)" }} />}
               <div className="stack" style={{ gap: 4 }}>
                 <div className="price" style={{ fontSize: 22 }}>{priceType === "free" ? "Ücretsiz" : priceType === "trade" ? "Takas" : formatPrice(Number(price) * 100)}</div>
                 <strong>{title}</strong>

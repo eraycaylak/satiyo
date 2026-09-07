@@ -49,6 +49,9 @@ export default function ExploreScreen() {
   const [submitted, setSubmitted] = useState("");
   const [categoryId, setCategoryId] = useState<string | undefined>();
   const [sort, setSort] = useState<SortOption>("relevance");
+  // Anasayfa taze-karışım tohumu: mount'ta (uygulama açılışı) bir kez üretilir;
+  // aşağı-çek-yenile ile de yenilenir → her seferinde farklı karışım.
+  const [feedSeed, setFeedSeed] = useState(() => Math.floor(Math.random() * 1_000_000) + 1);
   const [view, setView] = useState<"list" | "map">("list");
   const [city, setCity] = useState<string>(""); // "" = tüm Türkiye
   const [cityOpen, setCityOpen] = useState(false);
@@ -111,8 +114,10 @@ export default function ExploreScreen() {
     router.push("/filtrele");
   }
 
+  // Şehir SAYILMAZ: seçili konum zaten yanındaki konum pini'nde görünüyor; filtre
+  // rozetine de eklenince kalıcı "1" bildirimi gibi duruyordu.
   const activeFilters =
-    (categoryId ? 1 : 0) + (city ? 1 : 0) + (boostedOnly ? 1 : 0) +
+    (categoryId ? 1 : 0) + (boostedOnly ? 1 : 0) +
     (minPrice != null || maxPrice != null ? 1 : 0) + (condition ? 1 : 0) +
     (sellerType ? 1 : 0) + Object.keys(attrs).length + (submitted ? 1 : 0);
 
@@ -135,6 +140,10 @@ export default function ExploreScreen() {
     minPrice, maxPrice, condition, sellerType,
     boostedOnly: boostedOnly || undefined,
     attrs: Object.keys(attrs).length ? attrs : undefined,
+    // Taze karışım tohumu: her açılışta farklı → anasayfa hep aynı sırayla değil,
+    // yeni ilanlar üstte kalacak şekilde karışık gelir (backend yalnız sorgusuz
+    // relevance akışında kullanır; arama/explicit sıralama bunu yok sayar).
+    seed: feedSeed,
     ...(near ? { lat: near.lat, lng: near.lng } : {}),
   };
   const { data, isLoading, isError, refetch, isFetching } = useQuery({
@@ -266,7 +275,7 @@ export default function ExploreScreen() {
           contentContainerStyle={{ gap: GAP, paddingBottom: space.xxl, flexGrow: 1 }}
           renderItem={({ item }) => <ListingCard listing={item} width={cardW} />}
           refreshing={isFetching}
-          onRefresh={refetch}
+          onRefresh={() => { setFeedSeed(Math.floor(Math.random() * 1_000_000) + 1); refetch(); }}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
           ListHeaderComponent={

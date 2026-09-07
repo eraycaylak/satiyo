@@ -146,6 +146,36 @@ img { max-width: 100%; display: block; }
   padding: 4px 9px; border-radius: 999px;
 }
 
+/* Yüzen "Arkadaşını Davet Et" hediye-kutusu (mobil ReferralFab paritesi) */
+.referral-fab {
+  position: fixed; right: 20px; bottom: 24px; z-index: 90;
+  width: 56px; height: 56px; border-radius: 999px;
+  display: grid; place-items: center; font-size: 26px; line-height: 1;
+  background: var(--brand); color: #fff; text-decoration: none;
+  box-shadow: 0 6px 20px rgba(0,0,0,.28);
+  transition: transform .15s ease, box-shadow .15s ease;
+}
+.referral-fab:hover { transform: translateY(-2px) scale(1.05); box-shadow: 0 10px 26px rgba(0,0,0,.32); }
+.referral-fab-badge {
+  position: absolute; top: -6px; right: -6px;
+  background: var(--accent); color: #fff;
+  font-size: 10px; font-weight: 800; line-height: 1;
+  padding: 3px 6px; border-radius: 999px; border: 2px solid var(--bg);
+}
+/* Mobilde alt gezinme çubuğunun (MobileNav) üstünde dursun */
+@media (max-width: 640px) { .referral-fab { bottom: 78px; } }
+
+/* İlan feed grid'i — mobilde 2 sütun (letgo/sahibinden), geniş ekranda auto-fill */
+.listing-grid {
+  display: grid;
+  gap: var(--space-4);
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  align-items: start; /* kartlar içeriğe göre boyutlanır; kısa kartta boş beyaz alan oluşmaz */
+}
+@media (max-width: 640px) {
+  .listing-grid { grid-template-columns: repeat(2, 1fr); gap: var(--space-3); }
+}
+
 /* İlan kartı hover (yalnız tıklanabilir ilan kartları) */
 .listing-card { transition: transform .16s var(--ease, cubic-bezier(.16,1,.3,1)), box-shadow .16s ease, border-color .16s ease; }
 .listing-card:hover { transform: translateY(-3px); box-shadow: var(--shadow); border-color: color-mix(in oklab, var(--brand) 22%, var(--border)); }

@@ -137,4 +137,10 @@ export interface SearchFilters {
   pageSize?: number;
   lat?: number;
   lng?: number;
+  /**
+   * Anasayfa "taze karışım" tohumu. Yalnız sorgusuz relevance akışında kullanılır:
+   * her açılışta yeni bir tohum → aynı liste sabit sırayla değil, karışık gelir
+   * (yeni ilanlar üstte kalır). Sayfalar arası tutarlılık için aynı tohum kullanılmalı.
+   */
+  seed?: number;
 }

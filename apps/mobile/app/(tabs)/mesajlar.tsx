@@ -39,7 +39,7 @@ export default function ConversationsScreen() {
             <Pressable onPress={() => router.push(`/sohbet/${cv.id}`)}
               style={{ flexDirection: "row", gap: space.md, backgroundColor: t.surface, borderWidth: 1, borderColor: t.border, borderRadius: radius.lg, padding: space.md }}>
               <View style={{ width: 52, height: 52, borderRadius: radius.md, overflow: "hidden", backgroundColor: t.surface2 }}>
-                {cv.listing?.coverUrl ? <Image source={{ uri: cv.listing.coverUrl }} style={{ width: "100%", height: "100%" }} /> :
+                {cv.listing?.coverUrl ? <Image source={{ uri: cv.listing.coverUrl.replace("/media/", "/media/thumb/200/") }} style={{ width: "100%", height: "100%" }} /> :
                   <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}><Ionicons name="image-outline" size={22} color={t.muted} /></View>}
               </View>
               <View style={{ flex: 1, gap: 2 }}>

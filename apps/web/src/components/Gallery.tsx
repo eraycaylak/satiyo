@@ -2,6 +2,15 @@
 import { useRef, useState } from "react";
 import type { ListingImage } from "@satiyo/shared";
 
+/**
+ * Orijinaller 2-4 MB olabiliyor; galeri onları çekince detay sayfası çok yavaş açılıyordu.
+ * Sunucu tarafı yeniden boyutlandırma (/media/thumb/<genişlik>/) ile ana görsel ~100 KB'a,
+ * önizleme kareleri ~5 KB'a düşer.
+ */
+function thumb(url: string, width: number): string {
+  return url.replace("/media/", `/media/thumb/${width}/`);
+}
+
 export function Gallery({ images, title }: { images: ListingImage[]; title: string }) {
   const [active, setActive] = useState(0);
   const railRef = useRef<HTMLDivElement>(null);
@@ -33,7 +42,13 @@ export function Gallery({ images, title }: { images: ListingImage[]; title: stri
       <div className="gal-rail" ref={railRef} onScroll={onScroll}>
         {images.map((img, i) => (
           <div className="gal-slide" key={img.id}>
-            <img src={img.url} alt={i === 0 ? title : ""} style={{ width: "100%", height: "100%", objectFit: "contain" }} />
+            <img
+              src={thumb(img.url, 1200)}
+              alt={i === 0 ? title : ""}
+              loading={i === 0 ? "eager" : "lazy"}
+              decoding="async"
+              style={{ width: "100%", height: "100%", objectFit: "contain" }}
+            />
           </div>
         ))}
       </div>
@@ -56,7 +71,7 @@ export function Gallery({ images, title }: { images: ListingImage[]; title: stri
                   border: `2px solid ${i === active ? "var(--brand)" : "transparent"}`, padding: 0, background: "var(--surface-2)",
                 }}
               >
-                <img src={img.url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                <img src={thumb(img.url, 200)} alt="" loading="lazy" decoding="async" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
               </button>
             ))}
           </div>

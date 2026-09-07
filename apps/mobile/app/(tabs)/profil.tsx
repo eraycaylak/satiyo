@@ -16,6 +16,14 @@ import { Badge, Button, Loading } from "@/components/ui";
 const SHOW_PAID_FEATURES = false;
 const WEB = "https://satiyo.app";
 const SUPPORT = "mailto:destek@satiyo.app";
+const WA_GREETING = "Merhaba, Satıyo hakkında yardım almak istiyorum.";
+
+/** Panelden gelen numaradan wa.me linki kurar (sadece rakam; boşsa null → satır gizlenir). */
+function whatsappUrl(raw: string | null | undefined): string | null {
+  const digits = (raw ?? "").replace(/\D/g, "");
+  if (digits.length < 10) return null;
+  return `https://wa.me/${digits}?text=${encodeURIComponent(WA_GREETING)}`;
+}
 
 type IoniconName = ComponentProps<typeof Ionicons>["name"];
 
@@ -63,6 +71,9 @@ export default function ProfileScreen() {
 
   const { data: myL } = useQuery({ queryKey: ["my-listings"], queryFn: () => api.myListings(), enabled: !!user });
   const { data: notifs } = useQuery({ queryKey: ["notifications"], queryFn: () => api.notifications(), enabled: !!user });
+  // Destek WhatsApp numarası panelden gelir (deploy/güncelleme gerekmez); boşsa satır gizlenir.
+  const { data: appCfg } = useQuery({ queryKey: ["app-config"], queryFn: () => api.config(), staleTime: 5 * 60 * 1000 });
+  const waUrl = whatsappUrl(appCfg?.supportWhatsapp);
 
   useEffect(() => { if (user) setForm({ name: user.name, city: user.city ?? "", district: user.district ?? "" }); }, [user]);
 
@@ -152,6 +163,12 @@ export default function ProfileScreen() {
         <View style={{ height: 1, backgroundColor: t.border, marginLeft: 50 }} />
         <Row icon="gift" color="#22c55e" label="Arkadaşını Davet Et" onPress={() => router.push("/davet")} />
         <View style={{ height: 1, backgroundColor: t.border, marginLeft: 50 }} />
+        {Platform.OS === "ios" && (
+          <>
+            <Row icon="wallet" color="#16a34a" label="Kredi Yükle" onPress={() => router.push("/kredi")} />
+            <View style={{ height: 1, backgroundColor: t.border, marginLeft: 50 }} />
+          </>
+        )}
         <Row icon="notifications" color="#f59e0b" label="Bildirimler" badge={unread || undefined} onPress={() => router.push("/bildirimler")} />
         <View style={{ height: 1, backgroundColor: t.border, marginLeft: 50 }} />
         <Row icon="star" color="#eab308" label="Değerlendirmelerim" onPress={() => router.push(`/satici/${user.id}`)} />
@@ -171,6 +188,9 @@ export default function ProfileScreen() {
           </>
         ) : null}
         <View style={{ height: 1, backgroundColor: t.border, marginLeft: 50 }} />
+        {waUrl ? (
+          <Row icon="logo-whatsapp" color="#25D366" label="Satıyo Temsilcisi (WhatsApp)" onPress={() => Linking.openURL(waUrl)} />
+        ) : null}
         <Row icon="help-buoy" color="#22c55e" label="Yardım & Destek" onPress={() => Linking.openURL(SUPPORT)} />
       </View>
 

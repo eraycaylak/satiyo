@@ -64,7 +64,7 @@ export default function MyListingsPage() {
           {items.map((l) => (
             <div key={l.id} className="card row" style={{ padding: "var(--space-3)", gap: "var(--space-3)" }}>
               <Link href={`/ilan/${l.id}`} style={{ width: 72, height: 72, borderRadius: "var(--radius)", overflow: "hidden", background: "var(--surface-2)", flexShrink: 0 }}>
-                {l.images[0] ? <img src={l.images[0].url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <div style={{ display: "grid", placeItems: "center", height: "100%", fontSize: 24, opacity: .4 }}>🖼️</div>}
+                {l.images[0] ? <img src={l.images[0].url.replace("/media/", "/media/thumb/200/")} loading="lazy" alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <div style={{ display: "grid", placeItems: "center", height: "100%", fontSize: 24, opacity: .4 }}>🖼️</div>}
               </Link>
               <div className="grow stack" style={{ gap: 2 }}>
                 <Link href={`/ilan/${l.id}`}><strong>{l.title}</strong></Link>

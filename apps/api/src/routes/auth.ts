@@ -92,9 +92,7 @@ async function captureReferral(env: Env, newUserId: string, ref?: string): Promi
 /** OTP doğrulandıktan sonra: gerçek kullanıcıyı oluştur/getir, banlıysa reddet, oturum aç. */
 async function finishLogin(c: { env: Env }, phone: string, ref?: string) {
   let userRow = await c.env.DB.prepare(`SELECT * FROM users WHERE phone = ?`).bind(phone).first();
-  let created = false;
   if (!userRow) {
-    created = true;
     const id = newId("usr");
     await c.env.DB.prepare(
       `INSERT INTO users (id, phone, name, created_at, phone_verified) VALUES (?, ?, ?, ?, 1)`,

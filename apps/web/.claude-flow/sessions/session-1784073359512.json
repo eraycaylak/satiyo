@@ -4,9 +4,11 @@
   "cwd": "/Users/x/Desktop/Github-Projelerim/zınk-letgoclone/zink/apps/web",
   "context": {},
   "metrics": {
-    "edits": 17,
+    "edits": 19,
     "commands": 0,
     "tasks": 0,
     "errors": 0
-  }
+  },
+  "endedAt": "2026-07-20T22:28:39.666Z",
+  "duration": 513160154
 }

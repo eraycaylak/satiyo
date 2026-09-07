@@ -178,4 +178,6 @@ export interface AppConfig {
   latestVersion: { ios: string; android: string };
   storeUrl: { ios: string; android: string };
   message: string | null;
+  /** Satıyo temsilcisi WhatsApp numarası (ör. 905xxxxxxxxx). Boşsa destek satırı gizlenir. */
+  supportWhatsapp: string | null;
 }

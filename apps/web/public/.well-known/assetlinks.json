@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.satiyo.app",
+      "sha256_cert_fingerprints": [
+        "6A:59:3B:70:9B:C4:BB:C9:C6:98:BF:6D:2B:59:6A:D3:88:7A:F6:FB:3C:BC:88:64:5C:6E:C4:34:5A:48:FE:52"
+      ]
+    }
+  }
+]

@@ -149,6 +149,7 @@ listingRoutes.get("/", optionalAuth, async (c) => {
   const whereSql = where.join(" AND ");
 
   // Sıralama — boost her zaman öne (relevance/newest'te)
+  const RECENT_WINDOW_MS = 14 * 24 * 60 * 60 * 1000; // taze-karışımda "yeni" sayılan pencere
   const boostKey = "(CASE WHEN l.boosted_until IS NOT NULL AND l.boosted_until > ? THEN 0 ELSE 1 END)";
   let orderBy: string;
   const orderBinds: unknown[] = [];
@@ -165,6 +166,14 @@ listingRoutes.get("/", optionalAuth, async (c) => {
     case "relevance":
     default:
       if (hasQuery) { orderBy = `${boostKey}, bm25(listings_fts, 10.0, 2.0) ASC`; orderBinds.push(ts); }
+      else if (f.seed != null) {
+        // Anasayfa "taze karışım": boost'lu ilanlar en üstte; ardından son 14 günün
+        // ilanları üst kademede (yeni ilanlar her zaman öne çıkar); her kademe içinde
+        // tohum'a göre DETERMİNİSTİK karıştırma. Böylece her açılış (yeni tohum) farklı
+        // bir sıra gösterir ama aynı tohumun sayfaları tutarlı kalır (dublikasyon yok).
+        orderBy = `${boostKey}, (CASE WHEN l.created_at > ? THEN 0 ELSE 1 END), (ABS(l.rowid * ?) % 100003)`;
+        orderBinds.push(ts, ts - RECENT_WINDOW_MS, f.seed);
+      }
       else { orderBy = `${boostKey}, l.view_count DESC, l.created_at DESC`; orderBinds.push(ts); }
   }
 

@@ -1,11 +1,12 @@
 import { Hono } from "hono";
-import { buildFtsQuery, isValidStoreIdentity, savedSearchSchema, storeApplySchema, updateProfileSchema, STORE_MEMBERSHIP } from "@satiyo/shared";
+import { buildFtsQuery, isValidStoreIdentity, savedSearchSchema, storeApplySchema, updateProfileSchema, STORE_MEMBERSHIP, getCreditPackage } from "@satiyo/shared";
 import type { Env, Variables } from "../env.js";
 import { badRequest, fail } from "../lib/http.js";
 import { hydrateListings, rowToListing, rowToSeller, rowToUser } from "../lib/db.js";
 import { newId, now } from "../lib/id.js";
 import { getPaymentProvider } from "../lib/payments.js";
-import { getBalance } from "../lib/credit.js";
+import { getBalance, grantCredit } from "../lib/credit.js";
+import { verifyAppleReceipt } from "../lib/apple-iap.js";
 import { sha256 } from "../lib/crypto.js";
 import { requireAuth } from "../middleware/auth.js";
 
@@ -98,6 +99,58 @@ meRoutes.get("/referral", async (c) => {
     earnedMinor: Number(earned?.m ?? 0),
     rewardMinor: 5000,
   });
+});
+
+// --- iOS IAP: kredi satın alımını doğrula + kredi yükle ---
+// App satın alma makbuzunu gönderir; Apple'a doğrulatıp productId → kredi map'ler,
+// idempotency = transaction_id (aynı satın alım iki kez kredi yüklemez).
+meRoutes.post("/iap/verify", async (c) => {
+  const user = c.get("user");
+  const secret = c.env.APPLE_IAP_SHARED_SECRET;
+  if (!secret) fail(500, "iap_disabled", "IAP doğrulama yapılandırılmadı");
+  const body = (await c.req.json().catch(() => ({}))) as { receipt?: unknown };
+  const receipt = typeof body.receipt === "string" ? body.receipt.trim() : "";
+  if (receipt.length < 20) badRequest("Geçersiz makbuz");
+
+  const result = await verifyAppleReceipt(receipt, secret!);
+  if (!result.ok) fail(400, "iap_invalid", `Makbuz doğrulanamadı (status ${result.status})`);
+
+  // GÜVENLİK: sandbox makbuzları ücretsizdir. Üretimde (ENVIRONMENT=production) bunlara
+  // kredi VERME — aksi halde sandbox satın alımla bedava kredi üretilebilir. TestFlight
+  // testi için geçici olarak APPLE_IAP_ALLOW_SANDBOX="true" ile açılabilir.
+  const allowSandbox = c.env.APPLE_IAP_ALLOW_SANDBOX === "true";
+  if (result.environment === "Sandbox" && c.env.ENVIRONMENT === "production" && !allowSandbox) {
+    fail(400, "iap_sandbox_rejected", "Sandbox makbuzu üretimde geçersiz");
+  }
+
+  let grantedMinor = 0;
+  const applied: string[] = [];
+  let hadError = false; // gerçek DB hatası (idempotent tekrar DEĞİL)
+  for (const txn of result.inApp) {
+    const pkg = getCreditPackage(txn.productId);
+    if (!pkg) continue; // bilinmeyen ürün → atla
+    const amount = pkg.creditsMinor * (txn.quantity || 1);
+    const key = `iap:${txn.transactionId}`;
+    const ok = await grantCredit(c.env.DB, user.id, "iap_topup", amount, key, {
+      type: "iap",
+      id: txn.productId,
+    });
+    if (ok) {
+      grantedMinor += amount;
+      applied.push(txn.transactionId);
+      continue;
+    }
+    // grantCredit false → ya zaten verilmiş (idempotent) ya da geçici DB hatası. Ayırt et:
+    // ledger'da bu anahtar VARSA daha önce verilmiş (makbuz güvenle tüketilebilir);
+    // YOKSA gerçek hata → 500 dön ki istemci finishTransaction ETMESİN, Apple tekrar teslim etsin.
+    const exists = await c.env.DB.prepare(`SELECT 1 FROM credit_ledger WHERE idempotency_key = ?`).bind(key).first();
+    if (exists) applied.push(txn.transactionId);
+    else hadError = true;
+  }
+  // PARA KAYBI KORUMASI: gerçek hata olduysa makbuz tüketilmeden hata dön (kredi telafisi mümkün kalsın).
+  if (hadError) fail(500, "iap_grant_failed", "Kredi yüklenirken geçici bir sorun oluştu, lütfen tekrar deneyin");
+  const balance = await getBalance(c.env.DB, user.id);
+  return c.json({ ok: true, grantedMinor, applied, balance, environment: result.environment });
 });
 
 // Takip ettiğim satıcılar
